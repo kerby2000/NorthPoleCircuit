@@ -1,0 +1,18 @@
+{
+  "servers": {
+    "kicad": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--python",
+        "3.12",
+        "kicad-mcp-pro"
+      ],
+      "env": {
+        "KICAD_MCP_PROJECT_DIR": "C:/Users/lukin/Documents/VS code projects/NorthPoleCircuit/PCB",
+        "KICAD_MCP_WORKSPACE_ROOT": "C:/Users/lukin/Documents/VS code projects/NorthPoleCircuit/PCB",
+        "KICAD_MCP_PROFILE": "full"
+      }
+    }
+  }
+}

@@ -1,0 +1,217 @@
+(footprint "Speaker_GSPK3020035PN_Body"
+	(version 20240108)
+	(generator "codex")
+	(generator_version "1.1")
+	(layer "F.Cu")
+	(descr "GSPK3020035PN-8R0.8W-L100 wired speaker body, 30x20x3.5mm")
+	(tags "speaker body 3d wired 30x20")
+	(property "Reference" "REF**"
+		(at 0 -12 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "f2db877d-bb59-46d7-8d63-e4a534eaa394")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "GSPK3020035PN-8R0.8W"
+		(at 0 12 0)
+		(layer "F.Fab")
+		(uuid "e42ce27a-142e-4b67-860f-337ac0f78ee3")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Footprint" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "c61fb412-7093-45ce-a756-54220e10d857")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "c17028d3-f5c2-4d92-8ee7-bf53a6917728")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Wired speaker body, placed independently from solder pads"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "0c62969a-15aa-4932-b0e3-eaa18e1f7b2b")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr board_only exclude_from_pos_files exclude_from_bom)
+	(fp_line
+		(start -5 -10)
+		(end 5 -10)
+		(stroke
+			(width 0.18)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "7e0e58ab-1f3e-44f3-92c4-5e6db8717510")
+	)
+	(fp_line
+		(start 5 10)
+		(end -5 10)
+		(stroke
+			(width 0.18)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "ef0c65d8-4085-499d-9f9f-bf55a880cc62")
+	)
+	(fp_arc
+		(start -5 10)
+		(mid -15 0)
+		(end -5 -10)
+		(stroke
+			(width 0.18)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "1669d8ef-56a1-4a44-9b7d-fb37f460d1ac")
+	)
+	(fp_arc
+		(start 5 -10)
+		(mid 15 0)
+		(end 5 10)
+		(stroke
+			(width 0.18)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "d87cbe36-d8ed-4a92-95b5-b28b978d577e")
+	)
+	(fp_line
+		(start -5 -10)
+		(end 5 -10)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "249807b1-4fa8-4a28-a905-717d33e29d9a")
+	)
+	(fp_line
+		(start 5 10)
+		(end -5 10)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "5d103652-3c82-4cab-82b5-d646054d213e")
+	)
+	(fp_arc
+		(start -5 10)
+		(mid -15 0)
+		(end -5 -10)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "55b9b9a0-0a2c-42df-b3d0-b2f09fcff0e8")
+	)
+	(fp_arc
+		(start 5 -10)
+		(mid 15 0)
+		(end 5 10)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "8cab355e-f6d3-49b2-a955-fee197a4e77c")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 7.5 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "9f70a8ed-2718-492a-bbae-321390ce1e87")
+	)
+	(fp_line
+		(start 15 -2)
+		(end 20.5 -2)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "1cc44541-7de6-452b-8d89-c11c02873eee")
+	)
+	(fp_line
+		(start 15 2)
+		(end 20.5 2)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "5ff5c382-01d3-4f51-93d9-c477c7c07655")
+	)
+	(fp_text user "SPEAKER BODY"
+		(at 0 11.6 0)
+		(layer "F.Fab")
+		(uuid "bf29b0a1-bbaa-45ac-88d8-a5f6e5e65661")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(fp_text user "30x20x3.5"
+		(at 0 13 0)
+		(layer "F.Fab")
+		(uuid "0ab9121c-31f1-4d7f-b71a-061aa9af9179")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.1)
+			)
+		)
+	)
+	(embedded_fonts no)
+	(model "${KIPRJMOD}/footprints.pretty/GSPK3020035PN-8R0.8W-L100-realistic.step"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)

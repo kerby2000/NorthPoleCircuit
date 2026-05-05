@@ -1,0 +1,126 @@
+(footprint "Battery_LiPo_500mAh_30x35x4mm_WirePads"
+	(version 20240108)
+	(generator "codex")
+	(generator_version "1.1")
+	(layer "F.Cu")
+	(descr "1S LiPo battery wire solder pad pair; physical battery body is placed separately")
+	(tags "battery lipo wire pads solder dnp")
+	(property "Reference" "REF**"
+		(at 0 -4.8 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "3c9f4c63-a5c4-4f74-88cf-29d1136f2d6b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "BAT_PAD"
+		(at 0 4.8 0)
+		(layer "F.Fab")
+		(uuid "4a6b1c9f-7307-420b-8dfd-86d5436a4c84")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Footprint" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "50b0a735-015a-42e7-a849-0d906b61fb81")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "9c5831e3-076e-4a67-93bf-d7947f52bc95")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Battery wire solder pad pair"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "3fd6e5a4-8364-44c8-b679-c26f8ae5bc2c")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "MPN" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "37d5f697-9dd3-4c79-9c40-d4672c4fd42b")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd exclude_from_pos_files exclude_from_bom dnp)
+	(fp_rect
+		(start -3.7 -2.2)
+		(end 3.7 2.2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "8e036e1b-8cb5-4d0c-8368-e1f290d5d6c5")
+	)
+	(fp_text user "BAT+ RED"
+		(at -2.225 -3.35 0)
+		(layer "F.SilkS")
+		(uuid "c5ea45b2-cbb2-4714-a738-91546bc77b44")
+		(effects
+			(font
+				(size 0.75 0.75)
+				(thickness 0.12)
+			)
+		)
+	)
+	(fp_text user "BAT- BLACK"
+		(at 2.225 3.35 0)
+		(layer "F.SilkS")
+		(uuid "06a313f4-8669-4696-91ab-25d9d74448c2")
+		(effects
+			(font
+				(size 0.75 0.75)
+				(thickness 0.12)
+			)
+		)
+	)
+	(pad "1" smd roundrect
+		(at -2.225 0)
+		(size 2 3.6)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.15)
+	)
+	(pad "2" smd roundrect
+		(at 2.225 0)
+		(size 2 3.6)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.15)
+	)
+	(embedded_fonts no)
+)

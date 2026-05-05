@@ -1,0 +1,166 @@
+(footprint "Battery_LiPo_500mAh_30x35x4mm_Body"
+	(version 20240108)
+	(generator "codex")
+	(generator_version "1.1")
+	(layer "F.Cu")
+	(descr "1S LiPo 500mAh battery body, 30x35x4mm, placed independently from solder pads")
+	(tags "battery lipo body 3d 30x35")
+	(property "Reference" "REF**"
+		(at 0 -19.5 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "7a9b3930-b9b5-4bcc-a06d-3b04c924d8d5")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "LiPo_1S_500mAh"
+		(at 0 19.5 0)
+		(layer "F.Fab")
+		(uuid "df987f31-6f47-4067-af45-92c53a3eeac1")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Footprint" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "9f067d98-53e6-4651-a138-d2081bccb8f3")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "7df4ab8d-1373-4384-aad7-d0f1dd8930c9")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "1S LiPo body, placed independently from solder pads"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "6e3a0f5e-5b3b-466f-9348-7b17651b6a6f")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr board_only exclude_from_pos_files exclude_from_bom)
+	(fp_rect
+		(start -15 -17.5)
+		(end 15 17.5)
+		(stroke
+			(width 0.18)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.SilkS")
+		(uuid "a4a41890-90ff-4a5b-8aa8-7cb531973844")
+	)
+	(fp_rect
+		(start -15 -17.5)
+		(end 15 17.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "0497871c-b662-4ea1-9900-c0ccf9ea7cea")
+	)
+	(fp_line
+		(start -15 -17.5)
+		(end -11.5 -17.5)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "ee39fed7-5e97-438b-aad0-a1de21c261c1")
+	)
+	(fp_line
+		(start -15 -17.5)
+		(end -15 -14)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "09655fbf-ab3b-4c32-a261-59d12830a374")
+	)
+	(fp_text user "BATTERY BODY"
+		(at 0 0 0)
+		(layer "F.SilkS")
+		(uuid "fd1608b6-9033-4183-8bc3-c8c905d18fe2")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_text user "+ RED LEAD"
+		(at -8.5 -15.5 0)
+		(layer "F.SilkS")
+		(uuid "b1b57b5d-f91d-4171-902d-0b174976c346")
+		(effects
+			(font
+				(size 0.75 0.75)
+				(thickness 0.12)
+			)
+		)
+	)
+	(fp_text user "- BLACK"
+		(at 8.4 -15.5 0)
+		(layer "F.SilkS")
+		(uuid "4dfdbbe2-5f48-4909-84a1-e282342f1af6")
+		(effects
+			(font
+				(size 0.75 0.75)
+				(thickness 0.12)
+			)
+		)
+	)
+	(fp_text user "1S LiPo 30x35x4"
+		(at 0 18.8 0)
+		(layer "F.Fab")
+		(uuid "2b9fdebe-fc83-441c-80f3-2a39a469b53b")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.1)
+			)
+		)
+	)
+	(embedded_fonts no)
+	(model "${KIPRJMOD}/footprints.pretty/LiPo battery 500 mAh.step"
+		(offset
+			(xyz 0 0 0.2)
+		)
+		(scale
+			(xyz 0.912 1 0.8)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)

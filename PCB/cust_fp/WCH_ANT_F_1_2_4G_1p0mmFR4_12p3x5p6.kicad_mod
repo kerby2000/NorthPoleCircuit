@@ -1,0 +1,356 @@
+(footprint "WCH_ANT_F_1_2_4G_1p0mmFR4_12p3x5p6"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "WCH BLE 2.4GHz PCB antenna reference footprint, 12.3mm x 5.6mm, 1.0mm FR4")
+	(tags "WCH BLE antenna PCB IFA 2.4GHz 1.0mm FR4")
+	(property "Reference" "AE**"
+		(at 0.75 -2.1 0)
+		(layer "F.SilkS")
+		(uuid "e19d0651-b602-4272-b925-f9c9f62c879e")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Value" "WCH_ANT_F_1_2_4G_1p0mmFR4_12p3x5p6"
+		(at -3.5 -5.5 0)
+		(layer "F.Fab")
+		(uuid "f00d3d5f-d40f-41e2-b86d-79884477cdf6")
+		(effects
+			(font
+				(size 0.6 0.6)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "c6a8bc33-ece7-4342-99dd-10c4b9795156")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "b2c3d3a6-c6b8-4771-b20d-be5f80e8d610")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd board_only exclude_from_pos_files exclude_from_bom allow_missing_courtyard)
+	(net_tie_pad_groups "1, 2")
+	(duplicate_pad_numbers_are_jumpers no)
+
+
+
+
+
+
+
+
+
+
+
+
+
+	(fp_rect
+		(start -1 -1.05)
+		(end 2.6 1.25)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "21a5b95b-5890-438f-88e5-19c997d89db0")
+	)
+	(fp_rect
+		(start -10.35 -0.55)
+		(end 1.95 5.05)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "15650f88-6bc1-4159-a880-29585e919630")
+	)
+	(fp_line
+		(start -10.35 -0.55)
+		(end -10.35 5.05)
+		(stroke
+			(width 0.12)
+			(type default)
+		)
+		(layer "Dwgs.User")
+		(uuid "0e4a4d01-ed21-412b-b96d-3fdb430df755")
+	)
+	(fp_rect
+		(start -11.783 -1.8)
+		(end 3.967 6.2)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "cdf17a74-7bee-45e9-8a61-5986550895d8")
+	)
+	(fp_text user "WCH BLE PCB antenna"
+		(at -4.2 6.15 0)
+		(layer "F.Fab")
+		(uuid "fbea3496-c486-4662-be64-f35f59f9260c")
+		(effects
+			(font
+				(size 0.7 0.7)
+				(thickness 0.1)
+			)
+		)
+	)
+	(fp_text user "1.0 mm FR4 reference"
+		(at -4.2 6.95 0)
+		(layer "F.Fab")
+		(uuid "6191d9c5-5a44-4d4d-bb9f-8c900444bcd7")
+		(effects
+			(font
+				(size 0.7 0.7)
+				(thickness 0.1)
+			)
+		)
+	)
+	(fp_text user "ANT"
+		(at -0.35 -1.2 0)
+		(layer "F.Fab")
+		(uuid "ab964ef7-7d03-492c-b866-e3cd847d9a06")
+		(effects
+			(font
+				(size 0.7 0.7)
+				(thickness 0.1)
+			)
+		)
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0.75 -3.1 0)
+		(layer "F.Fab")
+		(uuid "96e13cdd-e444-42f4-b74a-8e9be0844725")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(fp_text user "GND"
+		(at 1.8 -1.2 0)
+		(layer "F.Fab")
+		(uuid "ffb9dfe7-b84a-43f3-8078-cb6bc8b16ebe")
+		(effects
+			(font
+				(size 0.7 0.7)
+				(thickness 0.1)
+			)
+		)
+	)
+	(fp_text user "Place series + shunt match near ANT"
+		(at 6.5 -1.5 90)
+		(layer "F.Fab")
+		(uuid "6ef29de3-380f-481f-aa6e-4338b2c13f61")
+		(effects
+			(font
+				(size 0.6 0.6)
+				(thickness 0.1)
+			)
+		)
+	)
+	(fp_text user "Board edge"
+		(at -10.9 2.25 90)
+		(layer "Cmts.User")
+		(uuid "dd06fa15-bdb0-43dd-8a06-4877ee48ca6d")
+		(effects
+			(font
+				(size 0.75 0.75)
+				(thickness 0.1)
+			)
+		)
+	)
+	(fp_text user "Suggested no Cu / no GND keepout"
+		(at -4.2 7.75 0)
+		(layer "Cmts.User")
+		(uuid "c35589fc-4d7e-4ab2-820e-20f17188ba36")
+		(effects
+			(font
+				(size 0.7 0.7)
+				(thickness 0.1)
+			)
+		)
+	)
+
+
+
+
+
+
+	(zone
+		(net 0)
+		(net_name "")
+		(layers "F.Cu")
+		(uuid "3e739084-bcd5-4b86-99f5-051a5acbb3f4")
+		(hatch edge 0.5)
+		(connect_pads
+			(clearance 0)
+		)
+		(min_thickness 0.25)
+		(filled_areas_thickness no)
+		(keepout
+			(tracks allowed)
+			(vias not_allowed)
+			(pads allowed)
+			(copperpour not_allowed)
+			(footprints allowed)
+		)
+		(fill
+			(thermal_gap 0.5)
+			(thermal_bridge_width 0.5)
+		)
+	(polygon
+		(pts
+			(xy -11.783 -1.8) (xy 3.967 -1.8) (xy 3.967 6.2) (xy -11.783 6.2)
+		)
+	)
+	)
+	(zone
+		(net 0)
+		(net_name "")
+		(layers "In1.Cu" "In2.Cu" "B.Cu")
+		(uuid "25a34a3c-f70d-4424-9274-cd3683eb3c9f")
+		(hatch edge 0.5)
+		(connect_pads
+			(clearance 0)
+		)
+		(min_thickness 0.25)
+		(filled_areas_thickness no)
+		(keepout
+			(tracks not_allowed)
+			(vias not_allowed)
+			(pads allowed)
+			(copperpour not_allowed)
+			(footprints allowed)
+		)
+		(fill
+			(thermal_gap 0.5)
+			(thermal_bridge_width 0.5)
+		)
+	(polygon
+		(pts
+			(xy -11.783 -1.8) (xy 3.967 -1.8) (xy 3.967 6.2) (xy -11.783 6.2)
+		)
+	)
+	)
+	(pad "1" smd rect
+		(at -10.15 2.83)
+		(size 0.4 4.44)
+		(layers "F.Cu")
+		(uuid "77029ed0-854b-4a5f-9d36-955197f81c1b")
+	)
+	(pad "1" smd rect
+		(at -9.65 0.76)
+		(size 1.4 0.3)
+		(layers "F.Cu")
+		(uuid "2d6b762b-146b-43ad-976b-c083ef6ea73b")
+	)
+	(pad "1" smd rect
+		(at -9.2 4.8)
+		(size 2.3 0.5)
+		(layers "F.Cu")
+		(uuid "f8786fc5-af4b-4aa5-8588-059ac3ba067e")
+	)
+	(pad "1" smd rect
+		(at -8.3 2.9)
+		(size 0.5 4.3)
+		(layers "F.Cu")
+		(uuid "04eb9f0b-7a0a-4fb0-9b23-c976ad76f50c")
+	)
+	(pad "1" smd rect
+		(at -7.2 0.9)
+		(size 2.7 0.3)
+		(layers "F.Cu")
+		(uuid "d385e144-ba4a-4e1a-aebb-0bf5c027b8db")
+	)
+	(pad "1" smd rect
+		(at -6.1 2.9)
+		(size 0.5 4.3)
+		(layers "F.Cu")
+		(uuid "b5d6108f-8c66-483f-a63f-ed673e477aac")
+	)
+	(pad "1" smd rect
+		(at -5.15 4.8)
+		(size 2.4 0.5)
+		(layers "F.Cu")
+		(uuid "fb91a3dd-ba98-4f4f-9bd2-53bf548d1794")
+	)
+	(pad "1" smd rect
+		(at -4.2 2.9)
+		(size 0.5 4.3)
+		(layers "F.Cu")
+		(uuid "44ae31f7-c51a-4fc0-bcd5-e3272840558e")
+	)
+	(pad "1" smd rect
+		(at -3.1 0.9)
+		(size 2.7 0.3)
+		(layers "F.Cu")
+		(uuid "f42355ac-e40c-43db-ac7c-3b4ec9ed0f26")
+	)
+	(pad "1" smd rect
+		(at -2 2.9)
+		(size 0.5 4.3)
+		(layers "F.Cu")
+		(uuid "31d9e7a5-e451-4a8b-9ce2-09c3bc1241b9")
+	)
+	(pad "1" smd rect
+		(at -0.15 4.8)
+		(size 4.2 0.5)
+		(layers "F.Cu")
+		(uuid "70d8c4a8-86db-4569-8d13-097d20a8e03b")
+	)
+	(pad "1" smd rect
+		(at 0 2.8)
+		(size 0.5 4.5)
+		(layers "F.Cu")
+		(uuid "8837fcc0-d1cb-4b2a-8082-fad77b9cbcaf")
+	)
+	(pad "2" smd rect
+		(at 1.5 2.8)
+		(size 0.9 4.5)
+		(layers "F.Cu")
+		(uuid "67721981-8130-486e-ac9b-36ff75b9bb38")
+	)
+	(pad "1" smd rect
+		(at 0 0)
+		(size 0.5 1.1)
+		(layers "F.Cu" "F.Mask")
+		(uuid "1dddd857-64dc-4d65-8b2e-1fc008f9456f")
+	)
+	(pad "2" smd rect
+		(at 1.5 0)
+		(size 0.9 1.1)
+		(layers "F.Cu" "F.Mask")
+		(uuid "a33ff9fd-2f4b-4304-aa00-aeac041cbecd")
+	)
+	(embedded_fonts no)
+)

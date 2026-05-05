@@ -2,5 +2,5 @@ remote_theme: Janky-Jingle-Crew/janky-jingle-crew.github.io
 plugins:
 - jekyll-remote-theme # add this line to the plugins list if you already have one
 
-title: "North Pole Circuit"
-description: "2024 Christmas Card by Janky Jingle Crew"
+title: "North Pole BLE Audio Card"
+description: "BLE/audio derivative redesign of the North Pole Circuit Christmas PCB"

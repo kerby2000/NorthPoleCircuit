@@ -1,5 +1,7 @@
 (footprint "ws2812b_1010" (version 20211014) (generator pcbnew)
   (layer "F.Cu")
+  (descr "1.0x1.0mm addressable RGB LED, compatible with TUOZHAN TZ-H1010-RGB/A-BU08UF-TA1305NA/W109 / JLCPCB C41347988; pinout 1=DO 2=VDD 3=GND 4=DI")
+  (tags "addressable RGB LED 1010 WS2812B TZ-H1010 C41347988")
   (tedit 64451018)
   (attr smd)
   (fp_text reference "REF**" (at 0.508 3.81 unlocked) (layer "F.SilkS")

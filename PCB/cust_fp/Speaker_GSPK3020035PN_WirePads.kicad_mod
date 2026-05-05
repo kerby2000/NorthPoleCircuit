@@ -1,0 +1,126 @@
+(footprint "Speaker_GSPK3020035PN_WirePads"
+	(version 20240108)
+	(generator "codex")
+	(generator_version "1.1")
+	(layer "F.Cu")
+	(descr "Speaker wire solder pad pair; physical speaker body is placed separately")
+	(tags "speaker wire pads solder dnp")
+	(property "Reference" "REF**"
+		(at 0 -4.4 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "720d9a2e-e3db-4f8b-9d1f-145408ea405b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "SPK_PAD"
+		(at 0 4.4 0)
+		(layer "F.Fab")
+		(uuid "835c93a7-13b4-4960-9327-2d024e5c2cf6")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Footprint" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "7fb581b9-c5f2-4f3e-9ec4-339d03863764")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "dbbc81f1-8307-410d-9a84-3e94652a5b9e")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Speaker wire solder pad pair"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "bd2140ad-3f03-4451-8d66-984805b62ce3")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "MPN" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "0dfd4719-e5cb-4f55-946d-112c442332a2")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd exclude_from_pos_files exclude_from_bom dnp)
+	(fp_rect
+		(start -3.7 -2.2)
+		(end 3.7 2.2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "238b32dc-bfab-4d7f-b506-e90e2bf1b8b9")
+	)
+	(fp_text user "SPK-"
+		(at -2.225 -3.2 0)
+		(layer "F.SilkS")
+		(uuid "0126d6f3-d0b7-4366-89de-efb6a57c5786")
+		(effects
+			(font
+				(size 0.75 0.75)
+				(thickness 0.12)
+			)
+		)
+	)
+	(fp_text user "SPK+"
+		(at 2.225 -3.2 0)
+		(layer "F.SilkS")
+		(uuid "9659a430-64e5-4c25-8421-f8349a16e8e4")
+		(effects
+			(font
+				(size 0.75 0.75)
+				(thickness 0.12)
+			)
+		)
+	)
+	(pad "2" smd roundrect
+		(at -2.225 0)
+		(size 2 3.6)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.15)
+	)
+	(pad "1" smd roundrect
+		(at 2.225 0)
+		(size 2 3.6)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.15)
+	)
+	(embedded_fonts no)
+)
