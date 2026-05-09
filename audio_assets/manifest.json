@@ -1,0 +1,23 @@
+{
+  "storage": "external_flash",
+  "files": [
+    {
+      "index": 1,
+      "name": "0001",
+      "filename": "0001.mp3",
+      "description": "startup jingle"
+    },
+    {
+      "index": 2,
+      "name": "0002",
+      "filename": "0002.mp3",
+      "description": "main loop music"
+    },
+    {
+      "index": 3,
+      "name": "0003",
+      "filename": "0003.mp3",
+      "description": "checkpoint effect"
+    }
+  ]
+}

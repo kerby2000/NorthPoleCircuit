@@ -13,7 +13,7 @@ Current state: hardware revision in progress.
 
 - KiCad 10 PCB project is included under `PCB/`.
 - Draft JLCPCB manufacturing files are included under `PCB/production/`.
-- Firmware for this BLE/audio revision has not been written yet.
+- Firmware bring-up scaffold lives under `Firmware/northpole_ch592_bringup/` and is based on the WCH CH592 EVT BLE Peripheral project.
 - The board has not yet been validated on real hardware.
 - The audio playback IC sourcing is still a risk and should be checked before ordering.
 
@@ -23,7 +23,8 @@ Do not treat the current production files as a proven release. Review ERC/DRC, B
 
 ```text
 PCB/                     KiCad 10 hardware project and draft manufacturing files
-Firmware/                Placeholder for the new CH592X BLE/audio firmware
+Firmware/                CH592X BLE/audio firmware bring-up project and docs
+audio_assets/            WT2003 external-flash manifest and copy-order packer
 Code/                    Original upstream firmware, kept for reference only
 CAD/                     Original upstream mechanical assets
 Media/                   Original media plus new PCB renders
@@ -48,6 +49,8 @@ Main blocks in the current KiCad design:
 - USB-C input
 - 32 MHz crystal
 - WCH-style PCB BLE antenna footprint
+- J3 WCH-LinkE/debug Tag-Connect footprint
+- J4 WT2003 USB update Tag-Connect footprint
 - thin speaker and 1S LiPo battery placement helpers
 
 ## Opening The PCB
@@ -85,7 +88,14 @@ Before ordering, re-export these from KiCad/Fabrication Toolkit and compare agai
 
 ## Firmware
 
-Firmware for this revision is planned but not started. The intended bring-up order is documented in [Firmware/README.md](./Firmware/README.md).
+Firmware for this revision is under [Firmware/](./Firmware/). The initial target is `Firmware/northpole_ch592_bringup/`, copied from a working WCH CH592 EVT BLE Peripheral example and then modified at the application layer.
+
+Important hardware notes:
+
+- J3 is WCH-LinkE/debug: 1=3.3V target reference, 2=TIO/SWDIO/PB14, 4=TCK/SWDCK/PB15, 5=GND, 3/6=NC.
+- PB14/PB15 are shared with IP5209 I2C through R15/R14 0 ohm links. Do not expect IP5209 I2C access during active WCH-LinkE debugging.
+- J4 is WT2003 USB update only: 1=+5V, 2=D+, 4=D-, 5=GND, 3/6=NC. It is not ARM SWD.
+- PB0 controls global DRV8837 `~SLEEP`; idle/fault state is `/SLEEP` low and all bridge IN pins low.
 
 The existing `Code/` directory is from the original upstream NorthPoleCircuit project and is not firmware for the CH592X BLE/audio redesign.
 

@@ -14,6 +14,12 @@ _autosave-*
 *-save.kicad_pcb
 fp-info-cache
 
+# KiCad autosave/history and local UI state
+.history/
+**/.history/
+**/*-backups/
+*.kicad_prl
+
 # KiCad lock files
 *.lck
 
@@ -24,3 +30,53 @@ fp-info-cache
 
 # Fabrication Toolkit backups
 PCB/production/backups/
+
+# Generated manufacturing outputs; publish final ones as GitHub Release assets
+PCB/production/*.zip
+PCB/production/*.xls
+PCB/production/*.xlsx
+PCB/production/*.csv
+PCB/production/*.ipc
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Build outputs
+build/
+Debug/
+Release/
+obj/
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.o
+*.d
+
+# Firmware build outputs
+Firmware/build/
+Firmware/northpole_ch592_bringup/obj/
+Firmware/northpole_ch592_bringup/*.wvproj
+audio_assets/build/
+
+# Eclipse / MounRiver generated workspace settings
+.settings/
+
+# Logs/temp
+*.log
+*.tmp
+*.bak
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+NorthPoleCircuit.zip
+NorthPoleCircuit2.zip
+NorthPoleCircuit3.zip
+
+# Datasheets and reference materials; publish final versions as GitHub Release assets 
+PCB/datasheets/*.pdf
+
