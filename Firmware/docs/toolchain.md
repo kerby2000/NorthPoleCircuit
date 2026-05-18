@@ -8,6 +8,7 @@ Verified local paths:
 MounRiver Studio: C:\MounRiver\MounRiver_Studio2
 CH592 EVT SDK:    C:\WCH\CH592EVT
 EVT baseline:     C:\WCH\CH592EVT\EVT\EXAM\BLE\Peripheral
+EVT broadcaster:  C:\WCH\CH592EVT\EVT\EXAM\BLE\Broadcaster
 Compiler:         RISC-V Embedded GCC, riscv-none-embed-gcc
 ```
 
@@ -34,6 +35,44 @@ Observed size from the local build:
 ```text
 text=155052 data=1196 bss=8204 dec=164452
 FLASH used: 156248 B / 448 KB
+```
+
+The unmodified EVT `Broadcaster` example is the current RF sanity baseline because it was observed in nRF Connect as `abc`.
+
+Command:
+
+```powershell
+& .\Firmware\tools\build.ps1 -Profile evt-broadcaster-baseline
+```
+
+Expected output:
+
+```text
+Firmware\build\evt_broadcaster_unmodified\Broadcaster.hex
+```
+
+Observed size from the local command-line build:
+
+```text
+text=125880 data=424 bss=8136 dec=134440
+FLASH used: 126304 B / 448 KB
+```
+
+The command-line build was bitwise compared against the WCH/MounRiver-generated HEX:
+
+```powershell
+$wch = 'C:\WCH\CH592EVT\EVT\EXAM\BLE\Broadcaster\obj\Broadcaster.hex'
+$repo = 'Firmware\build\evt_broadcaster_unmodified\Broadcaster.hex'
+Get-FileHash $wch,$repo
+cmd /c fc /b "$wch" "$repo"
+```
+
+Observed result:
+
+```text
+SHA256: 0B8F54FB1793830449032A8074F669681560CD3A0D3C56C8C7C38DCAA4BAF19D
+SIZE:   355299 bytes
+fc /b:  no differences encountered
 ```
 
 ## North Pole Bring-Up Build

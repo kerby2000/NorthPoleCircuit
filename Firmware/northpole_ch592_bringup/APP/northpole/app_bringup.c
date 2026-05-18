@@ -24,13 +24,18 @@ void app_bringup_init(void)
     timebase_init();
     log_init(LOG_LEVEL_INFO);
     fault_init();
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE
     board_init_safe_pins();
+#endif
     usb_cdc_shell_init();
 
     LOG_INFO("bring-up profile active\r\n");
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE
     board_print_pin_map();
+#endif
 
     settings_init();
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE
     power_ip5209_init();
     hall_init();
     touch_init();
@@ -38,6 +43,7 @@ void app_bringup_init(void)
     rgb_ws2812_set_brightness(settings_get()->brightness);
     audio_wt2003_init();
     motor_drv8837_init();
+#endif
     ble_service_init();
     shell_init();
     bringup_initialized = 1;
@@ -51,15 +57,19 @@ void app_bringup_poll(void)
 
     shell_poll();
     usb_cdc_shell_poll();
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE
     hall_poll();
     touch_poll();
     audio_wt2003_poll();
     motor_drv8837_poll();
+#endif
     ble_service_poll();
 
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE
     if (!motor_drv8837_is_armed()) {
         motor_drv8837_all_coast();
     }
+#endif
 }
 
 void app_bringup_run(void)

@@ -737,7 +737,7 @@ def generate_audit(
         "",
         f"- PCB file: `{pcb_path.relative_to(repo_root)}` sha256 `{pcb_sha}`",
         f"- Schematic file: `{sch_path.relative_to(repo_root)}` sha256 `{sch_sha}`",
-        f"- Generated UTC: `{_dt.datetime.now(_dt.UTC).isoformat(timespec='seconds')}`",
+        f"- Generated UTC: `{_dt.datetime.now(_dt.timezone.utc).isoformat(timespec='seconds')}`",
         "",
         "## Summary",
         "",

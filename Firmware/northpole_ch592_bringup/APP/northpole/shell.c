@@ -370,6 +370,10 @@ static int cmd_audio(int argc, char **argv)
         print_hex_bytes(report.last_rx, report.last_rx_len);
         return 0;
     } else if (strcmp(argv[1], "raw") == 0 && argc >= 3) {
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
+        LOG_WARN("audio hardware commands disabled in dev-board smoke build\r\n");
+        return -1;
+#endif
         uint8_t raw[WT2003_MAX_FRAME_SIZE];
         size_t raw_len = 0;
 
@@ -518,6 +522,10 @@ static int cmd_motor(int argc, char **argv)
         print_motor_status();
         return 0;
     }
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
+    LOG_WARN("motor commands disabled in dev-board smoke build\r\n");
+    return -1;
+#endif
     if (strcmp(argv[1], "arm") == 0 && argc >= 3) {
         unsigned long seconds = strtoul(argv[2], NULL, 0);
         uint32_t duration_ms = seconds > 4294967UL ? 0xffffffffUL : (uint32_t)(seconds * 1000UL);
@@ -567,6 +575,10 @@ static int cmd_rgb(int argc, char **argv)
         LOG_INFO("rgb off|one <idx> <r> <g> <b>|all <r> <g> <b>|chase <brightness>|order test|show\r\n");
         return 0;
     }
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
+    LOG_WARN("rgb commands disabled in dev-board smoke build\r\n");
+    return -1;
+#endif
     if (strcmp(argv[1], "off") == 0) {
         rgb_ws2812_clear();
         return 0;
@@ -635,6 +647,10 @@ static int cmd_hall(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
+    LOG_WARN("hall input reads disabled in dev-board smoke build\r\n");
+    return -1;
+#endif
     hall_poll();
     for (uint8_t i = 0; i < HALL_SENSOR_COUNT; ++i) {
         hall_state_t state = hall_get_state((hall_sensor_id_t)i);
@@ -651,6 +667,10 @@ static int cmd_touch(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
+    LOG_WARN("touch reads disabled in dev-board smoke build\r\n");
+    return -1;
+#endif
     touch_poll();
     for (uint8_t i = 0; i < TOUCH_COUNT; ++i) {
         touch_state_t state = touch_get_state((touch_pad_id_t)i);
@@ -666,6 +686,12 @@ static int cmd_touch(int argc, char **argv)
 
 static int cmd_i2c(int argc, char **argv)
 {
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
+    (void)argc;
+    (void)argv;
+    LOG_WARN("i2c commands disabled in dev-board smoke build\r\n");
+    return -1;
+#endif
     if (argc < 2 || strcmp(argv[1], "scan") == 0) {
         uint8_t addresses[I2C_BUS_MAX_SCAN_RESULTS];
         int found = i2c_bus_scan(addresses, I2C_BUS_MAX_SCAN_RESULTS, I2C_BUS_DEFAULT_TIMEOUT_MS);
@@ -713,6 +739,12 @@ static int cmd_i2c(int argc, char **argv)
 
 static int cmd_ip5209(int argc, char **argv)
 {
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
+    (void)argc;
+    (void)argv;
+    LOG_WARN("ip5209 commands disabled in dev-board smoke build\r\n");
+    return -1;
+#endif
     uint8_t value = 0;
     int rc;
 
@@ -793,6 +825,12 @@ static int cmd_reset(int argc, char **argv)
     (void)argc;
     (void)argv;
 
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
+    LOG_INFO("software reset requested; dev-board smoke build skips target safe-pin writes\r\n");
+    SYS_ResetExecute();
+    for (;;) {
+    }
+#else
     motor_drv8837_off();
     rgb_ws2812_clear();
     (void)audio_wt2003_stop();
@@ -801,4 +839,5 @@ static int cmd_reset(int argc, char **argv)
     SYS_ResetExecute();
     for (;;) {
     }
+#endif
 }

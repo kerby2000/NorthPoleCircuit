@@ -1,8 +1,8 @@
 # USB CDC Risk Review
 
-Status: `NEEDS_HARDWARE_TEST`.
+Status: `NEEDS_TARGET_BOARD`.
 
-The custom CDC shell is intentionally small and has not enumerated on hardware yet. Do not treat USB CDC as proven until a CH592 dev board or target board passes `Firmware/tools/usb_shell_smoke_test.py`.
+The custom CDC shell is intentionally small. It has enumerated and passed the dev-board smoke test on the CH592X-EVT-R1-LinkE board, but it still needs target-board validation before production use.
 
 ## References Compared
 
@@ -71,6 +71,22 @@ The EP4 notification endpoint is the highest-risk mismatch. The descriptor expos
 | Blocking behavior | Example code is demo-oriented | Shell drops TX when ring is full and polls RX | `INTENTIONAL_DIFFERENCES`, chosen to avoid blocking BLE/app safety |
 | USB reset | Clears address and endpoint states | Clears address/configured state and endpoint states | `MATCHES_WCH_EXAMPLE` for active CDC endpoints |
 
+## Dev-Board Findings
+
+Validated on CH592X-EVT-R1-LinkE with:
+
+```powershell
+python Firmware\tools\usb_shell_smoke_test.py --profile dev-board --port COM19 --timeout 3 --reset-recovery --ble-name "NorthPole BLE"
+```
+
+Findings:
+
+- Windows enumerated the shell as `USB-SERIAL CH9340 (COM19)` with VID/PID `1A86:8040`.
+- `help`, `version`, `status`, `faults`, `settings show`, `audio status`, `pins verify`, `safe check`, and `motor status` responded.
+- `reset` disconnected and reconnected COM19; `version` worked after reset.
+- BLE advertising resumed after reset and was visible as `NorthPole BLE`.
+- A CDC TX bug was found: a response exactly equal to the 64-byte bulk endpoint size was held by Windows until later traffic. The firmware now sends a zero-length packet after a full-size IN packet when the TX ring is empty.
+
 ## Enumeration Expectations
 
 Expected later validation:
@@ -93,4 +109,4 @@ Expected later validation:
 
 ## Decision
 
-Do not rewrite the USB stack before hardware arrives. The implementation has descriptor parity for the CDC shape and intentional simplifications for the shell use case, but endpoint 4 notification handling and DMA/register behavior remain `NEEDS_HARDWARE_TEST`.
+Do not rewrite the USB stack before target-board validation. The implementation has descriptor parity for the CDC shape, intentional simplifications for the shell use case, and one CH592 dev-board Windows pass. Endpoint 4 notification handling, DMA/register behavior under target-board load, and Linux enumeration remain `NEEDS_TARGET_BOARD`.

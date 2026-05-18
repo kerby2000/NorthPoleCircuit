@@ -21,6 +21,61 @@ The selected first target toolchain direction is WCH CH592 EVT SDK native style 
 
 The unmodified WCH EVT BLE `Peripheral` example builds locally with the MounRiver-bundled `riscv-none-embed-gcc`. The copied North Pole bring-up project also builds locally.
 
+## CH592 Upload Path Status
+
+Primary development/debug path:
+
+```text
+MounRiver Studio + WCH-LinkE
+```
+
+MounRiver/WCH-LinkE remains the primary development path. A MounRiver LED probe under `mounriver_ch592_led_probe/` builds, downloads, verifies, resets, and runs through MounRiver.
+
+The official native USB ISP GUI path is also proven on the CH592X-EVT-R1-LinkE board:
+
+```text
+WCHISPStudio V3.9
+Internal tool: WCHISPTool_CH57x-59x V3.10
+CH592 USB Download device: 4348:55E0
+Driver: official WCH CH375/WCHLink driver stack
+```
+
+Secondary and experimental paths are tracked separately:
+
+```text
+docs/ch592_upload_matrix.md
+docs/ch592_usb_isp_test_plan.md
+docs/wlink_attach_debug.md
+```
+
+Current policy:
+
+- Daily development/debug: MounRiver, WCH-LinkUtility, or PlatformIO custom `wlink` with manual Download-mode entry.
+- Emergency/field flashing: WCHISPStudio GUI native USB ISP is proven; a Windows official CMD tool has not been found yet.
+- PlatformIO: `wlink` upload is usable after manual Download-mode entry; native USB ISP through `wchisp` remains experimental.
+- PlatformIO bundled `wchisp -V` / no-verify is not acceptable because a no-verify image did not run.
+- Do not swap the CH592 USB Download driver with Zadig during normal work. WCHISPStudio and `wchisp` need different driver bindings for `4348:55E0`.
+
+Critical recovery note:
+
+If WCH-LinkUtility, MounRiver, or `wlink` suddenly stop identifying the CH592 after ISP/config
+experiments, the chip may be protected. WCHISPStudio can still flash in this state, but WCH-Link
+debug attach fails. The recovery that worked was:
+
+```powershell
+# Put CH592 into USB Download mode.
+# Use Zadig only on USB Module / 4348:55E0, not WCH-Link / 1A86:8010.
+$wchisp = "$env:USERPROFILE\.platformio\packages\tool-wchisp\wchisp.exe"
+& $wchisp config unprotect
+```
+
+See `docs/ch592_unprotect_recovery.md`. Keep `Code and data protection mode` unchecked during
+bring-up.
+
+If the bootloader no longer stays visible long enough for normal tools, see
+`docs/ch592_brick_recovery.md` and the polling recovery script
+`tools/ch592_recovery/revive_ch59x.py`.
+
 ## Commands
 
 Regenerate the hardware audit:

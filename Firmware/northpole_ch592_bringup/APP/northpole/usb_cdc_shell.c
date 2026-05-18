@@ -8,7 +8,7 @@
 #define CDC_EP0_SIZE 64u
 #define CDC_PACKET_SIZE 64u
 #define CDC_RX_RING_SIZE 256u
-#define CDC_TX_RING_SIZE 512u
+#define CDC_TX_RING_SIZE 2048u
 
 #define CDC_REQ_SET_LINE_CODING 0x20u
 #define CDC_REQ_GET_LINE_CODING 0x21u
@@ -59,6 +59,7 @@ __attribute__((aligned(4))) static uint8_t ep4_buf[CDC_PACKET_SIZE];
 
 static volatile uint8_t configured;
 static volatile uint8_t ep1_tx_busy;
+static volatile uint8_t ep1_zlp_pending;
 static volatile uint8_t pending_address;
 static volatile uint8_t set_line_coding_pending;
 
@@ -272,6 +273,7 @@ static void reset_usb_state(void)
 {
     configured = 0;
     ep1_tx_busy = 0;
+    ep1_zlp_pending = 0;
     pending_address = 0;
     set_line_coding_pending = 0;
     ctrl_ptr = 0;
@@ -288,14 +290,24 @@ static void start_tx_packet(void)
     uint8_t len = 0;
 
     if (!configured || ep1_tx_busy || tx_head == tx_tail) {
+        if (configured && !ep1_tx_busy && ep1_zlp_pending && tx_head == tx_tail) {
+            ep1_zlp_pending = 0;
+            ep1_tx_busy = 1;
+            R8_UEP1_T_LEN = 0;
+            R8_UEP1_CTRL = (R8_UEP1_CTRL & ~MASK_UEP_T_RES) | UEP_T_RES_ACK;
+        }
         return;
     }
 
+    ep1_zlp_pending = 0;
     while (len < CDC_PACKET_SIZE && tx_pop(&ep1_buf[CDC_PACKET_SIZE + len])) {
         len++;
     }
 
     if (len > 0u) {
+        if (len == CDC_PACKET_SIZE && tx_head == tx_tail) {
+            ep1_zlp_pending = 1;
+        }
         ep1_tx_busy = 1;
         R8_UEP1_T_LEN = len;
         R8_UEP1_CTRL = (R8_UEP1_CTRL & ~MASK_UEP_T_RES) | UEP_T_RES_ACK;
@@ -349,6 +361,38 @@ size_t usb_cdc_shell_write(const uint8_t *data, size_t len)
 #else
     (void)data;
     (void)len;
+#endif
+    return written;
+}
+
+size_t usb_cdc_shell_write_wait(const uint8_t *data, size_t len, uint32_t max_wait_loops)
+{
+    size_t written = 0;
+    uint32_t wait_loops = 0;
+
+#if APP_USB_CDC_SHELL_ENABLE
+    if (!configured) {
+        return 0;
+    }
+
+    while (written < len && configured) {
+        while (written < len && tx_push(data[written])) {
+            written++;
+            wait_loops = 0;
+        }
+        start_tx_packet();
+        if (written >= len) {
+            break;
+        }
+        if (++wait_loops >= max_wait_loops) {
+            break;
+        }
+        mDelayuS(100);
+    }
+#else
+    (void)data;
+    (void)len;
+    (void)max_wait_loops;
 #endif
     return written;
 }

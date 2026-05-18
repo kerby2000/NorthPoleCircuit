@@ -55,6 +55,37 @@
 #define APP_USB_CDC_SHELL_ENABLE 1
 #endif
 
+/* Dev-board isolation mode: keep the WCH BLE peripheral startup path close to
+ * the EVT example, while preserving early motor/RGB safe-pin initialization.
+ */
+#ifndef APP_DEV_BOARD_BLE_SMOKE
+#define APP_DEV_BOARD_BLE_SMOKE 0
+#endif
+
+/* Stronger isolation mode for the CH592 dev board: use the same BLE Broadcaster
+ * role as the WCH EVT example that appears as "abc" in nRF Connect.
+ */
+#ifndef APP_DEV_BOARD_BLE_BROADCASTER_SMOKE
+#define APP_DEV_BOARD_BLE_BROADCASTER_SMOKE 0
+#endif
+
+/* Dev-board app smoke mode: run the NorthPole BLE peripheral startup plus the
+ * hardware-independent bring-up app core. Target-PCB GPIO peripherals remain
+ * skipped because the CH592X-EVT-R1-LinkE pinout conflicts with NorthPole pins.
+ */
+#ifndef APP_DEV_BOARD_BRINGUP_APP_SMOKE
+#define APP_DEV_BOARD_BRINGUP_APP_SMOKE 0
+#endif
+
+/* Dev-board BLE smoke builds run on CH592X-EVT-R1-LinkE, whose pins do not
+ * match the NorthPole PCB. In particular PA11/TMR2 is the dev-board 32 kHz
+ * crystal pin, while NorthPole uses the same CH592 function as PWM_A1. Do not
+ * apply NorthPole motor/RGB safe-pin GPIO modes in dev-board smoke builds.
+ */
+#ifndef APP_DEV_BOARD_SKIP_NORTHPOLE_SAFE_PINS
+#define APP_DEV_BOARD_SKIP_NORTHPOLE_SAFE_PINS (APP_DEV_BOARD_BLE_SMOKE || APP_DEV_BOARD_BLE_BROADCASTER_SMOKE || APP_DEV_BOARD_BRINGUP_APP_SMOKE)
+#endif
+
 #ifndef APP_MOTOR_PWM_BACKEND_ENABLE
 #define APP_MOTOR_PWM_BACKEND_ENABLE 0
 #endif

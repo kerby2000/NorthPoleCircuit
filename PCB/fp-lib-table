@@ -2,4 +2,5 @@
   (version 7)
   (lib (name "cust_fp")(type "KiCad")(uri "${KIPRJMOD}/cust_fp")(options "")(descr ""))
   (lib (name "cust_rf")(type "KiCad")(uri "${KIPRJMOD}/cust_rf.pretty")(options "")(descr "Custom RF footprints"))
+  (lib (name "NorthPole_Logos")(type "KiCad")(uri "${KIPRJMOD}/cust_fp/NorthPole_Logos.pretty")(options "")(descr "North Pole decorative logo footprints"))
 )

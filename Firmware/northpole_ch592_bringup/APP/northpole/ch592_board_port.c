@@ -238,7 +238,7 @@ void log_platform_write(const char *text)
 {
     size_t len = strlen(text);
 
-    if (usb_cdc_shell_write((const uint8_t *)text, len) == len) {
+    if (usb_cdc_shell_write_wait((const uint8_t *)text, len, 10000u) == len) {
         return;
     }
 

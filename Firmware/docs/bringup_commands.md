@@ -4,6 +4,24 @@ The bring-up firmware exposes a USB CDC diagnostic shell. UART1 is reserved for 
 
 On the current PCB, UART1 is routed to the WT2003 audio IC. The original EVT debug UART used PA9, which is `/INT` on this board, so UART shell/log I/O is compiled off by default. Enable `NORTHPOLE_ENABLE_UART1_LOG=1` only on reworked hardware or a fixture where PB12/PB13 are connected to a host instead of the audio IC.
 
+## Automated Smoke Tests
+
+CH592 dev-board smoke build, already validated on the CH592X-EVT-R1-LinkE:
+
+```powershell
+python Firmware\tools\usb_shell_smoke_test.py --profile dev-board --port COM19 --timeout 3 --reset-recovery --ble-name "NorthPole BLE"
+python Firmware\tools\ble_diag_smoke_test.py --scan --timeout 10
+```
+
+Target-board first pass, after replacing `COMxx` with the enumerated USB CDC port:
+
+```powershell
+python Firmware\tools\usb_shell_smoke_test.py --profile target --port COMxx --timeout 3
+python Firmware\tools\ble_diag_smoke_test.py --scan --timeout 10
+```
+
+The dev-board profile avoids commands that would touch NorthPole target-only hardware. Use the target profile only on the real NorthPole PCB.
+
 ## Core
 
 ```text

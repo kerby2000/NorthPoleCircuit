@@ -7,7 +7,15 @@ import sys
 from pathlib import Path
 
 
-BLOCKED_DIR_NAMES = {"__pycache__", "build", ".settings", ".history"}
+BLOCKED_DIR_NAMES = {
+    "__pycache__",
+    "build",
+    ".settings",
+    ".history",
+    ".pio",
+    ".pioenvs",
+    ".piolibdeps",
+}
 BLOCKED_SUFFIXES = {
     ".pyc",
     ".pyo",

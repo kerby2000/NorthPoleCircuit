@@ -100,15 +100,23 @@ static void put_u32_le(uint8_t *dst, uint32_t value)
     dst[3] = (uint8_t)(value >> 24);
 }
 
-static uint16_t copy_string(uint8_t *dst, const char *src, uint16_t maxLen)
+static bStatus_t read_string(uint8_t *dst, uint16_t *out_len, const char *src,
+                             uint16_t offset, uint16_t maxLen)
 {
     uint16_t len = (uint16_t)strlen(src);
+    uint16_t remaining;
 
-    if (len > maxLen) {
-        len = maxLen;
+    if (offset > len) {
+        *out_len = 0;
+        return ATT_ERR_INVALID_OFFSET;
     }
-    tmos_memcpy(dst, (void *)src, len);
-    return len;
+    remaining = (uint16_t)(len - offset);
+    if (remaining > maxLen) {
+        remaining = maxLen;
+    }
+    tmos_memcpy(dst, (void *)(src + offset), remaining);
+    *out_len = remaining;
+    return SUCCESS;
 }
 
 static uint16_t build_status(uint8_t *dst, uint16_t maxLen)
@@ -187,9 +195,6 @@ static bStatus_t northpole_ReadAttrCB(uint16_t connHandle,
     (void)connHandle;
     (void)method;
 
-    if (offset > 0) {
-        return ATT_ERR_ATTR_NOT_LONG;
-    }
     if (pAttr->type.len != ATT_BT_UUID_SIZE) {
         *pLen = 0;
         return ATT_ERR_INVALID_HANDLE;
@@ -198,18 +203,23 @@ static bStatus_t northpole_ReadAttrCB(uint16_t connHandle,
     uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
     switch (uuid) {
     case NORTHPOLE_DIAG_VERSION_UUID:
-        *pLen = copy_string(pValue, APP_FIRMWARE_VERSION, maxLen);
-        return SUCCESS;
+        return read_string(pValue, pLen, APP_FIRMWARE_VERSION, offset, maxLen);
     case NORTHPOLE_DIAG_BOARD_UUID:
-        *pLen = copy_string(pValue, APP_BOARD_REVISION, maxLen);
-        return SUCCESS;
+        return read_string(pValue, pLen, APP_BOARD_REVISION, offset, maxLen);
     case NORTHPOLE_DIAG_PROFILE_UUID:
-        *pLen = copy_string(pValue, BUILD_PROFILE_NAME, maxLen);
-        return SUCCESS;
+        return read_string(pValue, pLen, BUILD_PROFILE_NAME, offset, maxLen);
     case NORTHPOLE_DIAG_STATUS_UUID:
+        if (offset > 0) {
+            *pLen = 0;
+            return ATT_ERR_ATTR_NOT_LONG;
+        }
         *pLen = build_status(pValue, maxLen);
         return SUCCESS;
     case NORTHPOLE_DIAG_COUNTERS_UUID:
+        if (offset > 0) {
+            *pLen = 0;
+            return ATT_ERR_ATTR_NOT_LONG;
+        }
         *pLen = build_counters(pValue, maxLen);
         return SUCCESS;
     default:
@@ -245,6 +255,11 @@ static bStatus_t northpole_WriteAttrCB(uint16_t connHandle,
     }
 
     tmos_memcpy(controlValue, pValue, len);
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
+    if (pValue[0] != NORTHPOLE_DIAG_CONTROL_CLEAR_FAULTS) {
+        return ATT_ERR_UNLIKELY;
+    }
+#endif
     switch (pValue[0]) {
     case NORTHPOLE_DIAG_CONTROL_RGB_ALL:
         if (len < 4u) {

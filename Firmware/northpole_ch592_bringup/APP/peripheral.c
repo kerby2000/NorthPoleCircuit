@@ -15,6 +15,7 @@
  * INCLUDES
  */
 #include "CONFIG.h"
+#include "app_config.h"
 #include "ble_service.h"
 #include "devinfoservice.h"
 #include "gattprofile.h"
@@ -130,8 +131,13 @@ static uint8_t advertData[] = {
     // in this peripheral
     0x03,                  // length of this data
     GAP_ADTYPE_16BIT_MORE, // some of the UUID's, but not all
+#if APP_DEV_BOARD_BLE_SMOKE
+    LO_UINT16(SIMPLEPROFILE_SERV_UUID),
+    HI_UINT16(SIMPLEPROFILE_SERV_UUID)
+#else
     LO_UINT16(NORTHPOLE_DIAG_SERVICE_UUID),
     HI_UINT16(NORTHPOLE_DIAG_SERVICE_UUID)
+#endif
 };
 
 // GAP GATT Attributes
@@ -248,7 +254,9 @@ void Peripheral_Init()
     GATTServApp_AddService(GATT_ALL_SERVICES);   // GATT attributes
     DevInfo_AddService();                        // Device Information Service
     SimpleProfile_AddService(GATT_ALL_SERVICES); // Simple GATT Profile
+#if !APP_DEV_BOARD_BLE_SMOKE || APP_DEV_BOARD_BRINGUP_APP_SMOKE
     NorthPoleDiag_AddService();                  // North Pole diagnostic GATT Profile
+#endif
 
     // Set the GAP Characteristics
     GGS_SetParameter(GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, attDeviceName);

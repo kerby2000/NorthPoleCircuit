@@ -61,6 +61,11 @@ Firmware/northpole_ch592_bringup/obj/
 Firmware/northpole_ch592_bringup/*.wvproj
 audio_assets/build/
 
+# PlatformIO build outputs
+.pio/
+.pioenvs/
+.piolibdeps/
+
 # Eclipse / MounRiver generated workspace settings
 .settings/
 
@@ -79,4 +84,4 @@ NorthPoleCircuit3.zip
 
 # Datasheets and reference materials; publish final versions as GitHub Release assets 
 PCB/datasheets/*.pdf
-
+Firmware/mounriver_ch592_led_probe/.mrs/b648d4b2ea6bf3a3247857f125bfa670-.snapshot

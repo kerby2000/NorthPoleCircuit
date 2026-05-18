@@ -33,16 +33,26 @@ void log_write(const char *text)
 
 void log_printf(log_level_t level, const char *fmt, ...)
 {
-    char buffer[192];
+    static char buffer[512];
     va_list args;
+    int written;
 
     if (level > active_level) {
         return;
     }
 
     va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    written = vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
+
+    if (written < 0) {
+        return;
+    }
+    if (written >= (int)sizeof(buffer)) {
+        buffer[sizeof(buffer) - 3u] = '\r';
+        buffer[sizeof(buffer) - 2u] = '\n';
+        buffer[sizeof(buffer) - 1u] = '\0';
+    }
 
     log_platform_write(buffer);
 }

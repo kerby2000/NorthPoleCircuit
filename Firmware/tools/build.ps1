@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("bringup", "production", "evt-baseline")]
+    [ValidateSet("bringup", "production", "evt-baseline", "evt-broadcaster-baseline", "broadcaster-ladder")]
     [string]$Profile = "bringup",
 
     [switch]$AuditOnly,
@@ -79,7 +79,10 @@ $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $FirmwareRoot = Join-Path $RepoRoot "Firmware"
 
 Write-Host "Running KiCad hardware audit..."
-python (Join-Path $FirmwareRoot "tools\extract_kicad_pinmap.py") --repo-root $RepoRoot
+Invoke-Checked `
+    -Exe "python" `
+    -Arguments @((Join-Path $FirmwareRoot "tools\extract_kicad_pinmap.py"), "--repo-root", $RepoRoot) `
+    -FailureMessage "KiCad hardware audit failed"
 
 if ($AuditOnly) {
     Write-Host "Audit-only run complete."
@@ -102,6 +105,34 @@ if ($Profile -eq "evt-baseline") {
     $projectRoot = Join-Path $bleRoot "Peripheral"
     $buildName = "evt_peripheral_unmodified"
     $artifact = "Peripheral"
+    $profileDefine = $null
+} elseif ($Profile -eq "evt-broadcaster-baseline") {
+    $projectRoot = Join-Path $bleRoot "Broadcaster"
+    $buildName = "evt_broadcaster_unmodified"
+    $artifact = "Broadcaster"
+    $profileDefine = $null
+} elseif ($Profile -eq "broadcaster-ladder") {
+    $projectRoot = Join-Path $FirmwareRoot "ch592_broadcaster_ladder"
+    if (($ExtraDefine -contains "LADDER_USE_NORTHPOLE_MAIN=1") -and ($ExtraDefine -contains "APP_DEV_BOARD_BLE_BROADCASTER_SMOKE=1")) {
+        $buildName = "broadcaster_ladder_northpole_main"
+    } elseif ($ExtraDefine -contains "LADDER_USE_NORTHPOLE_MAIN=1") {
+        $buildName = "broadcaster_ladder_northpole_main_custom"
+    } elseif ($ExtraDefine -contains "LADDER_LINK_FULL_NORTHPOLE_APP=1") {
+        $buildName = "broadcaster_ladder_full_link"
+    } elseif ($ExtraDefine -contains "LADDER_INIT_NORTHPOLE_BOARD_SAFE=1") {
+        $buildName = "broadcaster_ladder_init_board_safe"
+    } elseif ($ExtraDefine -contains "LADDER_INIT_NORTHPOLE_CORE=1") {
+        $buildName = "broadcaster_ladder_init_core"
+    } elseif ($ExtraDefine -contains "LADDER_LINK_NORTHPOLE_MODULES=1") {
+        $buildName = "broadcaster_ladder_northpole_linked"
+    } elseif ($ExtraDefine -contains "LADDER_USE_NORTHPOLE_BROADCASTER=1") {
+        $buildName = "broadcaster_ladder_northpole_module"
+    } elseif ($ExtraDefine -contains "LADDER_ADV_NORTHPOLE=1") {
+        $buildName = "broadcaster_ladder_northpole"
+    } else {
+        $buildName = "broadcaster_ladder_abc"
+    }
+    $artifact = "broadcaster_ladder"
     $profileDefine = $null
 } else {
     $projectRoot = Join-Path $FirmwareRoot "northpole_ch592_bringup"
@@ -142,6 +173,10 @@ $includePaths = @(
     $paths.LIB,
     $paths.RVMSIS
 )
+if ($Profile -eq "broadcaster-ladder" -and (($ExtraDefine -contains "LADDER_USE_NORTHPOLE_BROADCASTER=1") -or ($ExtraDefine -contains "LADDER_LINK_NORTHPOLE_MODULES=1") -or ($ExtraDefine -contains "LADDER_INIT_NORTHPOLE_CORE=1") -or ($ExtraDefine -contains "LADDER_INIT_NORTHPOLE_BOARD_SAFE=1") -or ($ExtraDefine -contains "LADDER_LINK_FULL_NORTHPOLE_APP=1") -or ($ExtraDefine -contains "LADDER_USE_NORTHPOLE_MAIN=1"))) {
+    $includePaths += Join-Path $FirmwareRoot "northpole_ch592_bringup\APP\include"
+    $includePaths += Join-Path $FirmwareRoot "northpole_ch592_bringup\Profile\include"
+}
 $includeArgs = Add-Includes $includePaths
 
 $commonArgs = @(
@@ -149,12 +184,16 @@ $commonArgs = @(
     "-mabi=ilp32",
     "-mcmodel=medany",
     "-msmall-data-limit=8",
+    "-mno-save-restore",
+    "-fmax-errors=20",
     "-Os",
     "-fmessage-length=0",
     "-fsigned-char",
     "-ffunction-sections",
     "-fdata-sections",
     "-fno-common",
+    "-g",
+    "-std=gnu99",
     "-DDEBUG=1"
 )
 if ($profileDefine) {
@@ -174,11 +213,8 @@ foreach ($flag in $ExtraCFlag) {
 $buildDir = Get-CheckedBuildDir $buildName
 
 $sources = @()
-$sources += Get-ChildItem -LiteralPath $paths.APP -Recurse -File | Where-Object { $_.Extension -in @(".c", ".S") }
-$sources += Get-ChildItem -LiteralPath $paths.Profile -File -Filter *.c
-$sources += Get-ChildItem -LiteralPath $paths.HAL -File -Filter *.c | Where-Object { $_.Name -notin @("KEY.c", "LED.c") }
-$sources += Get-ChildItem -LiteralPath $paths.LIB -File -Filter *.S
-$sources += Get-ChildItem -LiteralPath $paths.Startup -File -Filter *.S
+# Match MounRiver's generated object order. For these WCH BLE examples the
+# order changes code placement and reset-vector targets, so keep it stable.
 $sources += Get-ChildItem -LiteralPath $paths.Std -File -Filter *.c | Where-Object {
     $_.Name -notin @(
         "CH59x_usbdev.c",
@@ -191,6 +227,61 @@ $sources += Get-ChildItem -LiteralPath $paths.Std -File -Filter *.c | Where-Obje
         "CH59x_uart2.c",
         "CH59x_uart3.c"
     )
+} | Sort-Object FullName
+$sources += Get-ChildItem -LiteralPath $paths.Startup -File -Filter *.S | Sort-Object FullName
+$sources += Get-ChildItem -LiteralPath $paths.RVMSIS -File -Filter *.c | Sort-Object FullName
+$sources += Get-ChildItem -LiteralPath $paths.Profile -File -Filter *.c | Sort-Object FullName
+$sources += Get-ChildItem -LiteralPath $paths.LIB -File -Filter *.S | Sort-Object FullName
+$sources += Get-ChildItem -LiteralPath $paths.HAL -File -Filter *.c | Where-Object { $_.Name -notin @("KEY.c", "LED.c") } | Sort-Object FullName
+$appSources = Get-ChildItem -LiteralPath $paths.APP -Recurse -File | Where-Object { $_.Extension -in @(".c", ".S") }
+if ($Profile -eq "broadcaster-ladder" -and ($ExtraDefine -contains "LADDER_USE_NORTHPOLE_MAIN=1")) {
+    $appSources = @()
+}
+$sources += $appSources | Sort-Object `
+    @{ Expression = { if ($_.Name -match "_main\.c$") { 1 } else { 0 } } }, `
+    @{ Expression = { $_.FullName } }
+if ($Profile -eq "broadcaster-ladder" -and (($ExtraDefine -contains "LADDER_USE_NORTHPOLE_BROADCASTER=1") -or ($ExtraDefine -contains "LADDER_LINK_NORTHPOLE_MODULES=1") -or ($ExtraDefine -contains "LADDER_INIT_NORTHPOLE_CORE=1") -or ($ExtraDefine -contains "LADDER_INIT_NORTHPOLE_BOARD_SAFE=1") -or ($ExtraDefine -contains "LADDER_LINK_FULL_NORTHPOLE_APP=1") -or ($ExtraDefine -contains "LADDER_USE_NORTHPOLE_MAIN=1"))) {
+    $sources += Join-Path $FirmwareRoot "northpole_ch592_bringup\APP\northpole_broadcaster.c" | Get-Item
+}
+if ($Profile -eq "broadcaster-ladder" -and (($ExtraDefine -contains "LADDER_LINK_NORTHPOLE_MODULES=1") -or ($ExtraDefine -contains "LADDER_INIT_NORTHPOLE_CORE=1") -or ($ExtraDefine -contains "LADDER_INIT_NORTHPOLE_BOARD_SAFE=1") -or ($ExtraDefine -contains "LADDER_LINK_FULL_NORTHPOLE_APP=1") -or ($ExtraDefine -contains "LADDER_USE_NORTHPOLE_MAIN=1"))) {
+    $northpoleSupport = @(
+        "northpole\audio_wt2003.c",
+        "northpole\battery.c",
+        "northpole\ble_service.c",
+        "northpole\board.c",
+        "northpole\ch592_board_port.c",
+        "northpole\fault.c",
+        "northpole\hall.c",
+        "northpole\i2c_bus.c",
+        "northpole\log.c",
+        "northpole\motor_drv8837.c",
+        "northpole\motor_track.c",
+        "northpole\power_ip5209.c",
+        "northpole\rgb_ws2812.c",
+        "northpole\settings.c",
+        "northpole\shell.c",
+        "northpole\timebase.c",
+        "northpole\touch.c",
+        "northpole\usb_cdc_shell.c",
+        "..\Profile\northpole_gatt.c"
+    )
+    foreach ($relativeSupport in $northpoleSupport) {
+        $sources += Join-Path (Join-Path $FirmwareRoot "northpole_ch592_bringup\APP") $relativeSupport | Get-Item
+    }
+}
+if ($Profile -eq "broadcaster-ladder" -and (($ExtraDefine -contains "LADDER_LINK_FULL_NORTHPOLE_APP=1") -or ($ExtraDefine -contains "LADDER_USE_NORTHPOLE_MAIN=1"))) {
+    $fullLinkSources = @(
+        "northpole\app_bringup.c",
+        "peripheral.c",
+        "..\Profile\devinfoservice.c",
+        "..\Profile\gattprofile.c"
+    )
+    if ($ExtraDefine -contains "LADDER_USE_NORTHPOLE_MAIN=1") {
+        $fullLinkSources += "peripheral_main.c"
+    }
+    foreach ($relativeFull in $fullLinkSources) {
+        $sources += Join-Path (Join-Path $FirmwareRoot "northpole_ch592_bringup\APP") $relativeFull | Get-Item
+    }
 }
 
 $objects = @()
@@ -212,13 +303,16 @@ $linkArgs = $commonArgs + @(
     "--specs=nosys.specs",
     "-Wl,--gc-sections",
     "-Wl,--print-memory-usage",
+    "-Wl,-Map,$(Join-Path $buildDir "$artifact.map")",
     "-T", (Join-Path $paths.Ld "Link.ld")
 ) + $objects + @(
+    "-L", $projectRoot,
     "-L", $paths.LIB,
     "-L", $paths.Std,
     "-L", "..",
     "-lISP592",
     "-lCH59xBLE",
+    "-lm",
     "-o", $elf
 )
 

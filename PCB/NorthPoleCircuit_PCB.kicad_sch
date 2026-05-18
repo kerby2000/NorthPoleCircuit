@@ -219,6 +219,129 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Connector:TestPoint"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0.762)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "TP"
+				(at 0 6.858 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "TestPoint"
+				(at 0 5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 5.08 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 5.08 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "test point"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "test point tp"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "Pin* Test*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "TestPoint_0_1"
+				(circle
+					(center 0 3.302)
+					(radius 0.762)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "TestPoint_1_1"
+				(pin passive line
+					(at 0 0 90)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Connector:TestPoint_Small"
 			(pin_numbers
 				(hide yes)
@@ -2960,6 +3083,102 @@
 								(size 1.27 1.27)
 							)
 						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "Mechanical:Fiducial"
+			(exclude_from_sim no)
+			(in_bom no)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "FID"
+				(at 0 5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Fiducial"
+				(at 0 3.175 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Fiducial Marker"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "fiducial marker"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "Fiducial*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "Fiducial_0_1"
+				(circle
+					(center 0 0)
+					(radius 1.27)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type background)
 					)
 				)
 			)
@@ -6830,6 +7049,18 @@
 		)
 		(uuid "b493d575-d98b-4df2-ba65-7688193e2e82")
 	)
+	(rectangle
+		(start 287.02 60.96)
+		(end 313.69 101.6)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "f2ae2e53-d28d-43c4-8606-571eb1aa35e6")
+	)
 	(text "MCU"
 		(exclude_from_sim no)
 		(at 19.304 280.416 0)
@@ -6880,6 +7111,17 @@
 			(justify left)
 		)
 		(uuid "23ad4b29-2ea5-4822-ac8f-b82a099acf5e")
+	)
+	(text "FIDUCIAL"
+		(exclude_from_sim no)
+		(at 291.084 96.52 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+			)
+			(justify left)
+		)
+		(uuid "2e8e84b8-78d0-41b8-b14d-ea7b6eedabc9")
 	)
 	(text "CAPACITIVE TOUCH\n"
 		(exclude_from_sim no)
@@ -7017,6 +7259,12 @@
 		(uuid "03a1b89a-af28-4616-8428-40b60c86eada")
 	)
 	(junction
+		(at 275.59 27.94)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "044e38af-d226-4535-99e9-e5b8f0c912ad")
+	)
+	(junction
 		(at 146.05 66.04)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -7027,6 +7275,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "2118aaed-9e49-4148-84a0-42426ca7577f")
+	)
+	(junction
+		(at 354.33 55.88)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "21b1ddcb-11d9-45e5-b8c7-0dfb5694b006")
 	)
 	(junction
 		(at 55.88 27.94)
@@ -7201,6 +7455,18 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "6b15711e-af55-42b2-a416-8290c7874afa")
+	)
+	(junction
+		(at 199.39 184.15)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6d6a1735-113a-4f64-934c-a13b3d762233")
+	)
+	(junction
+		(at 246.38 27.94)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "715c48dd-57c0-48c5-ac8c-e615b9425092")
 	)
 	(junction
 		(at 360.68 118.11)
@@ -7425,6 +7691,10 @@
 		(uuid "3a0f1660-dd40-45c5-a269-c40059a64a36")
 	)
 	(no_connect
+		(at 118.11 233.68)
+		(uuid "4a14a202-6fbf-4a89-91f8-190565949baf")
+	)
+	(no_connect
 		(at 130.81 204.47)
 		(uuid "5b49d8a5-0894-4704-a040-1e8f811215e6")
 	)
@@ -7608,7 +7878,7 @@
 	)
 	(wire
 		(pts
-			(xy 219.71 41.91) (xy 209.55 41.91)
+			(xy 233.68 41.91) (xy 209.55 41.91)
 		)
 		(stroke
 			(width 0)
@@ -7675,6 +7945,16 @@
 			(type default)
 		)
 		(uuid "0dc09b0d-7b30-452b-b75d-f26f4cf0764b")
+	)
+	(wire
+		(pts
+			(xy 330.2 83.82) (xy 330.2 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1089692e-8cde-494f-b9f6-bf7a9d9b76ac")
 	)
 	(wire
 		(pts
@@ -7808,6 +8088,16 @@
 	)
 	(wire
 		(pts
+			(xy 24.13 189.23) (xy 39.37 189.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1866fda8-24cf-4338-9fc6-f08204bce690")
+	)
+	(wire
+		(pts
 			(xy 128.27 66.04) (xy 128.27 48.26)
 		)
 		(stroke
@@ -7885,6 +8175,16 @@
 			(type default)
 		)
 		(uuid "1d9545dd-dbab-4700-899d-761dfd5167fd")
+	)
+	(wire
+		(pts
+			(xy 330.2 91.44) (xy 344.17 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1dcf778a-44fa-46f1-97df-0de91099a589")
 	)
 	(wire
 		(pts
@@ -7988,6 +8288,16 @@
 	)
 	(wire
 		(pts
+			(xy 330.2 130.81) (xy 330.2 133.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2775e891-2d43-44d0-a01e-8c5a24453ab8")
+	)
+	(wire
+		(pts
 			(xy 85.09 194.31) (xy 88.9 194.31)
 		)
 		(stroke
@@ -7995,16 +8305,6 @@
 			(type default)
 		)
 		(uuid "27d489b4-fe07-4bc5-b0a7-cf113009c173")
-	)
-	(wire
-		(pts
-			(xy 335.28 130.81) (xy 344.17 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "281479d4-7a9d-4ce7-882f-67beaad6a688")
 	)
 	(wire
 		(pts
@@ -8078,13 +8378,23 @@
 	)
 	(wire
 		(pts
-			(xy 204.47 60.96) (xy 209.55 60.96)
+			(xy 204.47 60.96) (xy 223.52 60.96)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "2cd40223-89e1-4794-b3d1-01d8eee89263")
+	)
+	(wire
+		(pts
+			(xy 67.31 185.42) (xy 67.31 189.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2da00fb0-68f4-4a0d-90b5-ade5c6fb0584")
 	)
 	(wire
 		(pts
@@ -8238,16 +8548,6 @@
 	)
 	(wire
 		(pts
-			(xy 335.28 133.35) (xy 344.17 133.35)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "336d8bc1-4978-428c-bdde-14137cea75b5")
-	)
-	(wire
-		(pts
 			(xy 36.83 212.09) (xy 39.37 212.09)
 		)
 		(stroke
@@ -8275,16 +8575,6 @@
 			(type default)
 		)
 		(uuid "3411ab1f-7698-47bf-a3d3-74c149645fe7")
-	)
-	(wire
-		(pts
-			(xy 335.28 83.82) (xy 344.17 83.82)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "345bd04f-9918-4edf-af93-865baaeaa05c")
 	)
 	(wire
 		(pts
@@ -8378,7 +8668,7 @@
 	)
 	(wire
 		(pts
-			(xy 162.56 99.06) (xy 219.71 99.06)
+			(xy 162.56 99.06) (xy 233.68 99.06)
 		)
 		(stroke
 			(width 0)
@@ -8448,7 +8738,7 @@
 	)
 	(wire
 		(pts
-			(xy 204.47 63.5) (xy 209.55 63.5)
+			(xy 204.47 63.5) (xy 228.6 63.5)
 		)
 		(stroke
 			(width 0)
@@ -8465,6 +8755,16 @@
 			(type default)
 		)
 		(uuid "3f84ee79-c381-4275-8d6f-4e2ceecbe232")
+	)
+	(wire
+		(pts
+			(xy 123.19 212.09) (xy 130.81 212.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "40525bad-9806-4434-8092-b937122206b5")
 	)
 	(wire
 		(pts
@@ -8848,16 +9148,6 @@
 	)
 	(wire
 		(pts
-			(xy 335.28 91.44) (xy 344.17 91.44)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5a0861db-eae1-44f7-826d-0325fae78755")
-	)
-	(wire
-		(pts
 			(xy 74.93 151.13) (xy 77.47 151.13)
 		)
 		(stroke
@@ -8915,6 +9205,16 @@
 			(type default)
 		)
 		(uuid "5c76d861-a748-416d-b875-1dce830193ef")
+	)
+	(wire
+		(pts
+			(xy 334.01 130.81) (xy 344.17 130.81)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5ccf43ad-ee9c-4016-b293-f302fd33d788")
 	)
 	(wire
 		(pts
@@ -9058,23 +9358,13 @@
 	)
 	(wire
 		(pts
-			(xy 274.32 27.94) (xy 276.86 27.94)
+			(xy 274.32 27.94) (xy 275.59 27.94)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "66562e93-ed1c-4792-9374-9fc81881007f")
-	)
-	(wire
-		(pts
-			(xy 156.21 196.85) (xy 158.75 196.85)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6684d774-41cd-43e3-82da-a48b54f32012")
 	)
 	(wire
 		(pts
@@ -9128,6 +9418,16 @@
 	)
 	(wire
 		(pts
+			(xy 246.38 27.94) (xy 255.27 27.94)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6ca362a6-9af7-4ec4-b7e8-14f746af77e6")
+	)
+	(wire
+		(pts
 			(xy 213.36 68.58) (xy 213.36 73.66)
 		)
 		(stroke
@@ -9148,16 +9448,6 @@
 	)
 	(wire
 		(pts
-			(xy 335.28 86.36) (xy 344.17 86.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6f7bb15b-bd9d-46f1-a79c-8b9ad33894b9")
-	)
-	(wire
-		(pts
 			(xy 36.83 251.46) (xy 36.83 254)
 		)
 		(stroke
@@ -9165,6 +9455,16 @@
 			(type default)
 		)
 		(uuid "6f7f7790-e86a-4c32-b82a-8385d9831dd8")
+	)
+	(wire
+		(pts
+			(xy 228.6 60.96) (xy 228.6 63.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6f92f4da-0a40-455a-9cfa-b15a0feb09b2")
 	)
 	(wire
 		(pts
@@ -9295,6 +9595,16 @@
 			(type default)
 		)
 		(uuid "76ddb5c1-e890-4968-a7c8-85fd5a9f5928")
+	)
+	(wire
+		(pts
+			(xy 275.59 27.94) (xy 276.86 27.94)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "798805a0-5f1a-4172-841f-9a94171b8cf6")
 	)
 	(wire
 		(pts
@@ -9648,16 +9958,6 @@
 	)
 	(wire
 		(pts
-			(xy 128.27 212.09) (xy 130.81 212.09)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "92ba6678-e139-46b9-b119-1d000a8a1da5")
-	)
-	(wire
-		(pts
 			(xy 95.25 43.18) (xy 100.33 43.18)
 		)
 		(stroke
@@ -9665,6 +9965,16 @@
 			(type default)
 		)
 		(uuid "93943b9d-e10d-4a43-bb8c-23fd5e0275b4")
+	)
+	(wire
+		(pts
+			(xy 330.2 86.36) (xy 344.17 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "95115621-53f6-4919-bbff-dae116692f0f")
 	)
 	(wire
 		(pts
@@ -9918,6 +10228,16 @@
 	)
 	(wire
 		(pts
+			(xy 328.93 38.1) (xy 328.93 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a96060b0-3789-4654-8fa1-c69b33d9fa46")
+	)
+	(wire
+		(pts
 			(xy 207.01 27.94) (xy 209.55 27.94)
 		)
 		(stroke
@@ -10038,7 +10358,7 @@
 	)
 	(wire
 		(pts
-			(xy 198.12 184.15) (xy 200.66 184.15)
+			(xy 198.12 184.15) (xy 199.39 184.15)
 		)
 		(stroke
 			(width 0)
@@ -10055,6 +10375,16 @@
 			(type default)
 		)
 		(uuid "b1c9ce22-8ce6-4cf6-b9c3-398a337c6731")
+	)
+	(wire
+		(pts
+			(xy 156.21 196.85) (xy 165.1 196.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b1e3ff0a-b57f-4781-a450-56a60484f10e")
 	)
 	(wire
 		(pts
@@ -10085,6 +10415,16 @@
 			(type default)
 		)
 		(uuid "b4a42f63-eacb-4c44-98c8-4cce484a8532")
+	)
+	(wire
+		(pts
+			(xy 24.13 187.96) (xy 24.13 189.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b554b67a-57c5-49fb-8fa1-50cdc324c53d")
 	)
 	(wire
 		(pts
@@ -10158,6 +10498,16 @@
 	)
 	(wire
 		(pts
+			(xy 334.01 83.82) (xy 344.17 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b98330fc-dc81-423f-9726-f883e33a96e7")
+	)
+	(wire
+		(pts
 			(xy 111.76 52.07) (xy 111.76 53.34)
 		)
 		(stroke
@@ -10175,16 +10525,6 @@
 			(type default)
 		)
 		(uuid "bb2b6492-9ea2-4bdc-ab15-1ccc0c5d784b")
-	)
-	(wire
-		(pts
-			(xy 36.83 189.23) (xy 39.37 189.23)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "bb7a3bf2-e56b-4a68-8a41-b86f81a44067")
 	)
 	(wire
 		(pts
@@ -10228,16 +10568,6 @@
 	)
 	(wire
 		(pts
-			(xy 335.28 38.1) (xy 344.17 38.1)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "bda6469f-3349-415e-8f14-aba969a413f8")
-	)
-	(wire
-		(pts
 			(xy 204.47 58.42) (xy 209.55 58.42)
 		)
 		(stroke
@@ -10255,6 +10585,16 @@
 			(type default)
 		)
 		(uuid "be67cf3f-3760-4615-bf29-0e0b903a2a7a")
+	)
+	(wire
+		(pts
+			(xy 199.39 184.15) (xy 200.66 184.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bf04c9f0-da3e-4da5-9fb2-5c497021045f")
 	)
 	(wire
 		(pts
@@ -10388,6 +10728,16 @@
 	)
 	(wire
 		(pts
+			(xy 328.93 53.34) (xy 328.93 55.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc51e069-8bd8-401c-9406-f7d4f1842de2")
+	)
+	(wire
+		(pts
 			(xy 232.41 35.56) (xy 232.41 34.29)
 		)
 		(stroke
@@ -10415,6 +10765,16 @@
 			(type default)
 		)
 		(uuid "ceaa7871-5831-4930-af01-ccb87150fff1")
+	)
+	(wire
+		(pts
+			(xy 330.2 133.35) (xy 344.17 133.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cfda0ab2-b7f5-4b2d-bdbf-4d8ef1b1571c")
 	)
 	(wire
 		(pts
@@ -10498,6 +10858,16 @@
 	)
 	(wire
 		(pts
+			(xy 332.74 38.1) (xy 344.17 38.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d4e35781-4889-406b-9b07-fde6493bf92f")
+	)
+	(wire
+		(pts
 			(xy 255.27 27.94) (xy 255.27 30.48)
 		)
 		(stroke
@@ -10578,7 +10948,7 @@
 	)
 	(wire
 		(pts
-			(xy 219.71 41.91) (xy 219.71 99.06)
+			(xy 233.68 41.91) (xy 233.68 99.06)
 		)
 		(stroke
 			(width 0)
@@ -10688,7 +11058,17 @@
 	)
 	(wire
 		(pts
-			(xy 241.3 27.94) (xy 255.27 27.94)
+			(xy 328.93 55.88) (xy 354.33 55.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e896ffc1-4ddf-4262-b593-f51cdaa5f928")
+	)
+	(wire
+		(pts
+			(xy 241.3 27.94) (xy 246.38 27.94)
 		)
 		(stroke
 			(width 0)
@@ -10715,6 +11095,16 @@
 			(type default)
 		)
 		(uuid "eac559e0-1784-470d-8824-e33957644cb6")
+	)
+	(wire
+		(pts
+			(xy 328.93 40.64) (xy 344.17 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eb3c0151-5a0e-46c2-8f77-8d1ceae81fb2")
 	)
 	(wire
 		(pts
@@ -10845,16 +11235,6 @@
 			(type default)
 		)
 		(uuid "f620b34f-a76c-4c1c-9e61-15699df2a255")
-	)
-	(wire
-		(pts
-			(xy 335.28 40.64) (xy 344.17 40.64)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f672552a-baf3-46c2-8349-8ebd36107232")
 	)
 	(wire
 		(pts
@@ -11257,12 +11637,12 @@
 		(uuid "6b967fad-891f-46a1-98a8-77224b69d6fc")
 	)
 	(label "RX1"
-		(at 128.27 212.09 180)
+		(at 123.19 212.09 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right bottom)
+			(justify left bottom)
 		)
 		(uuid "75f0490d-c16b-4319-b977-270bb1ba9b46")
 	)
@@ -11517,12 +11897,12 @@
 		(uuid "c2629186-b0ce-4122-b983-4e71d8578d2b")
 	)
 	(label "TX1"
-		(at 158.75 196.85 0)
+		(at 165.1 196.85 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
 		(uuid "c2ad6df7-1125-4570-836c-cf007b0e661c")
 	)
@@ -12812,6 +13192,85 @@
 			(project ""
 				(path "/db302918-e9e0-4a56-a0dd-0680f1d216a7"
 					(reference "#PWR012")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 223.52 60.96 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "0b30cb1b-2318-4c15-ab5b-e51e42fb95ef")
+		(property "Reference" "SDA1"
+			(at 221.996 55.626 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "SDA"
+			(at 221.742 53.594 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 228.6 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 228.6 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 223.52 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6d7a58da-d818-4d81-8335-8bc60452402a")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "SDA1")
 					(unit 1)
 				)
 			)
@@ -15013,6 +15472,85 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 332.74 38.1 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "1eeff38e-00c4-4855-984e-33d404edbd00")
+		(property "Reference" "G1"
+			(at 331.216 32.766 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "G1"
+			(at 331.47 30.734 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 337.82 38.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 337.82 38.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 332.74 38.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4946e97b-3571-415a-87da-9db6a8e6240a")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "G1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 234.95 227.33 0)
 		(mirror y)
@@ -15556,6 +16094,85 @@
 			(project "NorthPoleCircuit_PCB"
 				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
 					(reference "#PWR028")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 246.38 27.94 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "305a686d-9618-4241-8ce8-1a969e6ee9a2")
+		(property "Reference" "+5V1"
+			(at 244.856 22.606 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "+5V"
+			(at 244.602 20.574 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 251.46 27.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 251.46 27.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 246.38 27.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "8929b83f-a867-40d5-947b-45e7c3016c9d")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "+5V1")
 					(unit 1)
 				)
 			)
@@ -18223,6 +18840,82 @@
 		)
 	)
 	(symbol
+		(lib_id "Mechanical:Fiducial")
+		(at 292.1 67.31 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "5279830f-18f9-48ed-83ad-d0beb7f0a33a")
+		(property "Reference" "FID1"
+			(at 294.64 66.0399 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Fiducial"
+			(at 294.64 68.5799 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Fiducial:Fiducial_0.75mm_Mask1.5mm"
+			(at 292.1 67.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 292.1 67.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Fiducial Marker"
+			(at 292.1 67.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "FID1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 266.7 38.1 0)
 		(unit 1)
@@ -19626,84 +20319,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 118.11 233.68 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "5edc4351-0ea8-40c1-956d-960ce7fbc0df")
-		(property "Reference" "#PWR062"
-			(at 118.11 237.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+5V"
-			(at 118.11 228.6 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 118.11 233.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 118.11 233.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 118.11 233.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "83a2a5f6-65f2-4d8c-aa5b-e197764a5f06")
-		)
-		(instances
-			(project "NorthPoleCircuit_PCB"
-				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
-					(reference "#PWR062")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "cust_sym:DRV5032FADMRR")
 		(at 120.65 127 0)
 		(unit 1)
@@ -20659,6 +21274,164 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 199.39 184.15 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "6af3a9be-c1db-46c0-bf63-5851d435028e")
+		(property "Reference" "LED1"
+			(at 197.866 178.816 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "LED"
+			(at 197.612 176.784 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 204.47 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 204.47 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 199.39 184.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "95c4f86e-5a11-4aed-8b75-1f594ef26591")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "LED1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 330.2 91.44 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "6c5ab738-4398-4c62-a521-b3acd7d4d68e")
+		(property "Reference" "SLEEP1"
+			(at 328.676 93.218 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "SLEEP"
+			(at 327.914 95.504 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 335.28 91.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 335.28 91.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 330.2 91.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "50e2033f-19cf-431d-86b9-a52eca8d0de6")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "SLEEP1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 78.74 220.98 0)
 		(unit 1)
@@ -21281,6 +22054,82 @@
 		)
 	)
 	(symbol
+		(lib_id "Mechanical:Fiducial")
+		(at 292.1 76.2 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "6eb86929-80e0-4eed-b78d-42a8ffb9c69f")
+		(property "Reference" "FID2"
+			(at 294.64 74.9299 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Fiducial"
+			(at 294.64 77.4699 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Fiducial:Fiducial_0.75mm_Mask1.5mm"
+			(at 292.1 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 292.1 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Fiducial Marker"
+			(at 292.1 76.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "FID2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C_Small")
 		(at 162.56 58.42 0)
 		(unit 1)
@@ -21691,6 +22540,85 @@
 			(project "NorthPoleCircuit_PCB"
 				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
 					(reference "U6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 275.59 27.94 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "757ed21c-46c8-4f78-afe7-018346d800ff")
+		(property "Reference" "+3.3V1"
+			(at 272.796 20.574 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 272.796 20.574 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 280.67 27.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 280.67 27.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 275.59 27.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ac694a8a-67df-455a-940e-298ae857dc51")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "+3.3V1")
 					(unit 1)
 				)
 			)
@@ -22267,6 +23195,85 @@
 			(project ""
 				(path "/db302918-e9e0-4a56-a0dd-0680f1d216a7"
 					(reference "R3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 334.01 83.82 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "7a53ebf8-b1ea-4310-9e26-d2df3fa3dc29")
+		(property "Reference" "A1"
+			(at 332.486 78.486 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "A1"
+			(at 332.74 76.454 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 339.09 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 339.09 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 334.01 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6c3b60a1-d697-4c7e-a758-b312d9ee5548")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "A1")
 					(unit 1)
 				)
 			)
@@ -22867,6 +23874,85 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 328.93 53.34 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "80118946-2255-4fa7-b6f8-b54614890014")
+		(property "Reference" "GND3"
+			(at 327.406 48.006 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "HALL2"
+			(at 327.152 45.974 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 334.01 53.34 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 334.01 53.34 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 328.93 53.34 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "1b57f8e7-973e-475d-8958-c56968cecc0b")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "GND3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Mechanical:MountingHole")
 		(at 293.37 39.37 0)
 		(unit 1)
@@ -23397,6 +24483,85 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 330.2 83.82 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "85bd80c5-ae6b-4093-a3dc-75d2049f75b1")
+		(property "Reference" "A2"
+			(at 327.66 78.486 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "A2"
+			(at 328.93 76.454 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 335.28 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 335.28 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 330.2 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "d868bbef-5a9c-4925-8900-2d139744507f")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "A2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 339.09 120.65 0)
 		(unit 1)
@@ -23796,6 +24961,85 @@
 			(project "NorthPoleCircuit_PCB"
 				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
 					(reference "D2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 328.93 38.1 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "90d3c853-1d1a-4baa-b995-2c4d48a0bbc9")
+		(property "Reference" "G2"
+			(at 327.406 32.766 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "G2"
+			(at 327.66 30.734 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 334.01 38.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 334.01 38.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 328.93 38.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "752cf912-755a-49fd-b768-e67030b1786d")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "G2")
 					(unit 1)
 				)
 			)
@@ -24443,6 +25687,164 @@
 			(project "NorthPoleCircuit_PCB"
 				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
 					(reference "#PWR063")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 330.2 130.81 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "9ec5cf8b-0167-4a1c-bdb4-a68636995171")
+		(property "Reference" "B2"
+			(at 327.66 125.476 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "B2"
+			(at 328.93 123.444 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 335.28 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 335.28 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 330.2 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ee0c8558-f202-4c70-9a3d-107b9f345853")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "B2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 67.31 185.42 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "a087a4e6-2553-4edc-9b5a-b3b63a2fcba1")
+		(property "Reference" "HALL1"
+			(at 65.786 180.086 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "HALL1"
+			(at 65.532 178.054 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 72.39 185.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 72.39 185.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 67.31 185.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "33853266-9080-47a3-a898-2eb0d56e0360")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "HALL1")
 					(unit 1)
 				)
 			)
@@ -26785,6 +28187,85 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 24.13 187.96 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "be1292d3-4e68-403c-98a0-5eb77d4152a8")
+		(property "Reference" "HALL2"
+			(at 22.606 182.626 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "HALL2"
+			(at 22.352 180.594 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 29.21 187.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 29.21 187.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 24.13 187.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9653dd4a-1d62-4f14-ac70-a487096abe09")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "HALL2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 100.33 190.5 0)
 		(unit 1)
@@ -27616,6 +29097,85 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 228.6 60.96 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "d50bba6c-0228-4fcd-afcf-5cca0edafe5e")
+		(property "Reference" "SCL1"
+			(at 227.076 55.626 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "SCL"
+			(at 226.822 53.594 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 233.68 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 233.68 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 228.6 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9fcf2149-6061-4ed0-aa9f-0fe4c3ee5797")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "SCL1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 165.1 92.71 0)
 		(unit 1)
@@ -27694,6 +29254,85 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 334.01 130.81 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(uuid "d7c2a00f-c7d5-4a98-a70c-177779280058")
+		(property "Reference" "B1"
+			(at 332.486 125.476 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "B1"
+			(at 332.74 123.444 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+			(at 339.09 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 339.09 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "test point"
+			(at 334.01 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b7a07968-2b82-4ed0-8e88-f1da33b969f6")
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "B1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:PWR_FLAG")
 		(at 55.88 27.94 0)
 		(unit 1)
@@ -27766,6 +29405,82 @@
 			(project "NorthPoleCircuit_PCB"
 				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
 					(reference "#FLG02")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:Fiducial")
+		(at 292.1 85.09 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files no)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "da93caac-4470-435a-9281-9428ab3d02a1")
+		(property "Reference" "FID3"
+			(at 294.64 83.8199 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Fiducial"
+			(at 294.64 86.3599 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Fiducial:Fiducial_0.75mm_Mask1.5mm"
+			(at 292.1 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 292.1 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Fiducial Marker"
+			(at 292.1 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "NorthPoleCircuit_PCB"
+				(path "/d3f84e70-29a1-4f80-a9cd-be4c09039df6"
+					(reference "FID3")
 					(unit 1)
 				)
 			)

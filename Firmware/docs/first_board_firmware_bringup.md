@@ -2,6 +2,40 @@
 
 This sequence is intentionally conservative. Do not run motor movement tests until safe states, USB, BLE, RGB, sensors, audio, and I2C have been checked.
 
+## Starting Point
+
+The CH592 firmware base has already passed on the CH592X-EVT-R1-LinkE dev board:
+
+- BLE advertisement as `NorthPole BLE`.
+- Diagnostic GATT service `0xFD90` reads.
+- USB CDC shell on Windows.
+- USB CDC `reset` recovery.
+- Automated BLE advertisement scan after reset.
+
+The first real NorthPole PCB session should therefore focus on electrical safety and pin behavior, not on proving the CH592 BLE stack from scratch.
+
+## Build Target-Board Firmware
+
+Use the normal bring-up profile, with no dev-board smoke defines:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Firmware\tools\build.ps1 -Profile bringup
+```
+
+Expected output:
+
+```text
+BUILD_OK ...\Firmware\build\bringup\northpole_ch592_bringup.hex
+```
+
+Flash this HEX to the target board:
+
+```text
+Firmware\build\bringup\northpole_ch592_bringup.hex
+```
+
+Do not flash a dev-board smoke build to the target board for first electrical validation.
+
 ## Required Order
 
 1. Inspect the board under magnification for solder bridges, reversed ICs, USB-C connector damage, and regulator/PMIC orientation.
@@ -25,6 +59,126 @@ This sequence is intentionally conservative. Do not run motor movement tests unt
 19. Test `i2c scan` and `ip5209 status` without WCH-LinkE actively debugging.
 20. Test motor logic with no load or disconnected coils first.
 21. Test motor PWM with current limiting and a logic analyzer before allowing any real motion.
+
+## First-Flash Checklist
+
+Use this checklist the first time the actual NorthPole PCB is flashed.
+
+### 1. Pre-Power Inspection
+
+- Confirm no obvious solder bridges on CH592X, DRV8837s, WT2003, IP5209, USB-C, and regulator pins.
+- Confirm J3 is the WCH-LinkE/debug connector.
+- Confirm J4 is the WT2003 USB update connector, not debug.
+- If practical, leave the motor/load disconnected for the first power-up.
+- If R14/R15 are populated, remember that PB14/PB15 are shared between WCH-LinkE debug and IP5209 I2C.
+
+### 2. First Power
+
+- Use a current-limited bench supply or protected USB source.
+- Start with a conservative current limit.
+- Verify `+3.3V` is present and stable.
+- Stop immediately if current is unexpectedly high, the regulator heats, or 3.3 V is out of tolerance.
+
+### 3. Flash
+
+Preferred debug/programming path:
+
+```powershell
+& "$env:USERPROFILE\.platformio\packages\tool-wlink\wlink.exe" flash --chip CH59X --speed low --erase "Firmware\build\bringup\northpole_ch592_bringup.hex"
+```
+
+If `wlink` is unreliable, use MounRiver or WCH-LinkUtility with:
+
+| Setting | Value |
+|---|---|
+| Core | RISC-V |
+| Series | CH590/1/2 |
+| Address | `0x00000000` |
+| CLK Speed | Low |
+| Operations | Erase All, Program, Verify, Reset and Run |
+
+Do not change code-protection or debug-protection settings during normal bring-up.
+
+### 4. USB CDC Shell
+
+After reset, Windows should enumerate a CDC serial port. If it does, run:
+
+```powershell
+python Firmware\tools\usb_shell_smoke_test.py --profile target --port COMxx --timeout 3
+```
+
+Replace `COMxx` with the target board's COM port. If the script is too broad for the first pass, manually run:
+
+```text
+version
+status
+faults
+settings show
+pins verify
+safe check
+audio status
+motor status
+```
+
+Expected:
+
+- `faults=0x00000000` unless a known, documented first-board condition exists.
+- `motor_armed=0`.
+- `safe check` reports `/SLEEP` and all six DRV8837 inputs expected low.
+- `audio status` remains `HARDWARE_VALIDATION_PENDING`.
+
+### 5. Mandatory Scope Checks Before Any Output Test
+
+Do these with the board freshly reset and before running RGB, audio, I2C, or motor commands:
+
+| Signal | Expected |
+|---|---|
+| PB0 `/SLEEP` | Low |
+| `/PWM_A1` | Low |
+| `/PWM_A2` | Low |
+| `/PWM_B1` | Low |
+| `/PWM_B2` | Low |
+| `/PWM_G1` | Low |
+| `/PWM_G2` | Low |
+| `/LED` | Low, no boot pulse |
+| WT2003 UART TX | Safe input before audio command; idle high only once UART is enabled |
+
+Then run:
+
+```text
+motor off
+safe check
+```
+
+Confirm the same safe states again.
+
+### 6. BLE Diagnostic Check
+
+After the electrical safe state passes, verify BLE:
+
+```powershell
+python Firmware\tools\ble_diag_smoke_test.py --scan --timeout 10
+```
+
+Expected:
+
+- Device name `NorthPole BLE`.
+- Version, board revision, build profile, status packet, and counters packet read successfully.
+- Clear-faults write succeeds.
+
+Do not use BLE RGB/audio writes until the relevant hardware path has been tested locally from USB CDC.
+
+### 7. Stop Point For First Session
+
+The first target-board session is successful if:
+
+- 3.3 V is stable.
+- Firmware flashes and boots.
+- USB CDC or BLE diagnostics work.
+- `/SLEEP`, all DRV8837 inputs, and `/LED` are safe at reset.
+- `safe check` and `pins verify` match the PCB audit.
+
+Stop there and save notes before moving to RGB, sensors, audio, I2C, or motor tests.
 
 ## Initial Shell Commands
 
