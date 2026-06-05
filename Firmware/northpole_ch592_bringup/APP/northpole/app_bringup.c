@@ -24,24 +24,36 @@ void app_bringup_init(void)
     timebase_init();
     log_init(LOG_LEVEL_INFO);
     fault_init();
-#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_BOARD_SAFE_INIT
     board_init_safe_pins();
 #endif
     usb_cdc_shell_init();
 
     LOG_INFO("bring-up profile active\r\n");
-#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_PRINT_PIN_MAP_AT_BOOT
     board_print_pin_map();
 #endif
 
     settings_init();
-#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_POWER_IP5209
     power_ip5209_init();
+#endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_HALL
     hall_init();
+#endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_TOUCH
     touch_init();
+#endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_RGB
     rgb_ws2812_init();
     rgb_ws2812_set_brightness(settings_get()->brightness);
+#elif !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_BOARD_SAFE_INIT
+    board_output_write(BOARD_OUTPUT_RGB_DATA, 0);
+#endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_AUDIO
     audio_wt2003_init();
+#endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_MOTOR
     motor_drv8837_init();
 #endif
     ble_service_init();
@@ -57,15 +69,21 @@ void app_bringup_poll(void)
 
     shell_poll();
     usb_cdc_shell_poll();
-#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_HALL
     hall_poll();
+#endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_TOUCH
     touch_poll();
+#endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_AUDIO
     audio_wt2003_poll();
+#endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_MOTOR
     motor_drv8837_poll();
 #endif
     ble_service_poll();
 
-#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_MOTOR
     if (!motor_drv8837_is_armed()) {
         motor_drv8837_all_coast();
     }

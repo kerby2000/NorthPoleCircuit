@@ -40,7 +40,7 @@ int main(void)
 #endif
 
     SetSysClock(CLK_SOURCE_PLL_60MHz);
-#if !APP_DEV_BOARD_SKIP_NORTHPOLE_SAFE_PINS
+#if !APP_DEV_BOARD_SKIP_NORTHPOLE_SAFE_PINS && APP_TARGET_ENABLE_EARLY_SAFE_PINS
     northpole_ch592_early_safe_pins();
 #endif
 
@@ -52,16 +52,18 @@ int main(void)
      * Dev-board smoke builds deliberately skip this because NorthPole motor
      * pins conflict with CH592X-EVT-R1-LinkE crystal/USB/LCD pins.
      */
-#if !APP_DEV_BOARD_SKIP_NORTHPOLE_SAFE_PINS
+#if !APP_DEV_BOARD_SKIP_NORTHPOLE_SAFE_PINS && APP_TARGET_ENABLE_EARLY_SAFE_PINS
     northpole_ch592_early_safe_pins();
 #endif
 #endif
 
-#if APP_DEV_BOARD_BLE_SMOKE || APP_DEV_BOARD_BLE_BROADCASTER_SMOKE || APP_DEV_BOARD_BRINGUP_APP_SMOKE
+#if APP_DEV_BOARD_BLE_SMOKE || APP_DEV_BOARD_BLE_BROADCASTER_SMOKE || APP_DEV_BOARD_BRINGUP_APP_SMOKE || APP_TARGET_USE_EVT_UART_DEBUG_STARTUP
 #ifdef DEBUG
     /* Keep dev-board BLE smoke startup close to WCH EVT examples. The proven
      * Broadcaster path initializes default UART1 and prints VER_LIB before
      * CH59x_BLEInit(); preserve that sequence while isolating BLE startup.
+     * On target hardware this routes UART1 to the WT2003 path, so it is only
+     * enabled by explicit debug-isolation builds.
      */
     GPIOA_SetBits(bTXD1);
     GPIOA_ModeCfg(bTXD1, GPIO_ModeOut_PP_5mA);

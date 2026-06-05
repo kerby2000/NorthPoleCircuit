@@ -24,13 +24,45 @@
 #define NORTHPOLE_ENABLE_WT2003_UART 1
 #endif
 
-#define CH592_GPIOA_MOTOR_MASK (bTMR2 | bPWM5 | bPWM4)
-#define CH592_GPIOB_MOTOR_MASK (bTMR1_ | bPWM9 | bPWM7)
-#define CH592_GPIOB_MOTOR_SLEEP_MASK (GPIO_Pin_0)
-#define CH592_GPIOA_RGB_MASK   (GPIO_Pin_15)
+#if APP_TARGET_SAFE_ENABLE_MOTOR_A
+#define CH592_GPIOA_MOTOR_A_SAFE_MASK (bTMR1 | bTMR2)
+#else
+#define CH592_GPIOA_MOTOR_A_SAFE_MASK 0u
+#endif
+
+#if APP_TARGET_SAFE_ENABLE_MOTOR_G
+#define CH592_GPIOA_MOTOR_G_SAFE_MASK (bPWM5 | bPWM4)
+#else
+#define CH592_GPIOA_MOTOR_G_SAFE_MASK 0u
+#endif
+
+#if APP_TARGET_SAFE_ENABLE_MOTOR_B
+#define CH592_GPIOB_MOTOR_B_SAFE_MASK (bPWM9 | bPWM7)
+#else
+#define CH592_GPIOB_MOTOR_B_SAFE_MASK 0u
+#endif
+
+#if APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP
+#define CH592_GPIOB_MOTOR_SLEEP_SAFE_MASK (GPIO_Pin_0)
+#else
+#define CH592_GPIOB_MOTOR_SLEEP_SAFE_MASK 0u
+#endif
+
+#define CH592_GPIOA_RGB_MASK (GPIO_Pin_15)
+
+#if APP_TARGET_SAFE_ENABLE_RGB_DATA
+#define CH592_GPIOA_RGB_SAFE_MASK CH592_GPIOA_RGB_MASK
+#else
+#define CH592_GPIOA_RGB_SAFE_MASK 0u
+#endif
+
+#define CH592_GPIOA_SAFE_OUTPUT_LOW_MASK \
+    (CH592_GPIOA_MOTOR_A_SAFE_MASK | CH592_GPIOA_MOTOR_G_SAFE_MASK | CH592_GPIOA_RGB_SAFE_MASK)
+#define CH592_GPIOB_SAFE_OUTPUT_LOW_MASK \
+    (CH592_GPIOB_MOTOR_B_SAFE_MASK | CH592_GPIOB_MOTOR_SLEEP_SAFE_MASK)
 
 #define MOTOR_PWMX_CHANNELS (CH_PWM4 | CH_PWM5 | CH_PWM7 | CH_PWM9)
-#define MOTOR_PWM_CLOCK_DIV 1u
+#define MOTOR_PWMX_CLOCK_DIV 4u
 
 #if defined(FREQ_SYS) && (FREQ_SYS != APP_WS2812_BITBANG_ASSUMED_FREQ_SYS_HZ)
 #warning "WS2812 bit-bang timing assumes 60 MHz FREQ_SYS; validate timing or retune NOP counts before using RGB."
@@ -52,6 +84,7 @@ static uint8_t debug_uart_ready;
 static uint32_t motor_pwm_hz = APP_MOTOR_PWM_DEFAULT_HZ;
 static uint32_t motor_timer_cycle_ticks;
 static uint16_t motor_pwmx_cycle_ticks;
+static uint8_t motor_pwm_platform_initialized;
 
 static int lookup_hw_pin(const board_pin_t *pin, hw_pin_t *hw)
 {
@@ -59,7 +92,7 @@ static int lookup_hw_pin(const board_pin_t *pin, hw_pin_t *hw)
     hw->mask = 0;
 
     switch (pin->u2_pad) {
-    case 1: hw->port = HW_PORT_B; hw->mask = bTMR1_; break;      /* /PWM_A2 */
+    case 1: hw->port = HW_PORT_A; hw->mask = bTMR1; break;       /* /PWM_A2 */
     case 2: hw->port = HW_PORT_B; hw->mask = GPIO_Pin_6; break;  /* /HALL1 */
     case 3: hw->port = HW_PORT_B; hw->mask = GPIO_Pin_0; break;  /* /SLEEP */
     case 7: hw->port = HW_PORT_A; hw->mask = bAIN10; break;      /* /SPD-- */
@@ -122,13 +155,38 @@ static uint8_t hw_read(hw_pin_t hw)
     return 0;
 }
 
+static uint8_t safe_output_gate_enabled(const board_pin_t *pin)
+{
+    switch (pin->u2_pad) {
+    case 1:
+    case 32:
+        return APP_TARGET_SAFE_ENABLE_MOTOR_A ? 1u : 0u;
+    case 17:
+    case 18:
+        return APP_TARGET_SAFE_ENABLE_MOTOR_B ? 1u : 0u;
+    case 30:
+    case 31:
+        return APP_TARGET_SAFE_ENABLE_MOTOR_G ? 1u : 0u;
+    case 3:
+        return APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP ? 1u : 0u;
+    case 28:
+        return APP_TARGET_SAFE_ENABLE_RGB_DATA ? 1u : 0u;
+    default:
+        return 1u;
+    }
+}
+
 void northpole_ch592_early_safe_pins(void)
 {
-    GPIOA_ResetBits(CH592_GPIOA_MOTOR_MASK | CH592_GPIOA_RGB_MASK);
-    GPIOB_ResetBits(CH592_GPIOB_MOTOR_MASK | CH592_GPIOB_MOTOR_SLEEP_MASK);
+    if (CH592_GPIOA_SAFE_OUTPUT_LOW_MASK != 0u) {
+        GPIOA_ResetBits(CH592_GPIOA_SAFE_OUTPUT_LOW_MASK);
+        GPIOA_ModeCfg(CH592_GPIOA_SAFE_OUTPUT_LOW_MASK, GPIO_ModeOut_PP_5mA);
+    }
 
-    GPIOA_ModeCfg(CH592_GPIOA_MOTOR_MASK | CH592_GPIOA_RGB_MASK, GPIO_ModeOut_PP_5mA);
-    GPIOB_ModeCfg(CH592_GPIOB_MOTOR_MASK | CH592_GPIOB_MOTOR_SLEEP_MASK, GPIO_ModeOut_PP_5mA);
+    if (CH592_GPIOB_SAFE_OUTPUT_LOW_MASK != 0u) {
+        GPIOB_ResetBits(CH592_GPIOB_SAFE_OUTPUT_LOW_MASK);
+        GPIOB_ModeCfg(CH592_GPIOB_SAFE_OUTPUT_LOW_MASK, GPIO_ModeOut_PP_5mA);
+    }
 
     GPIOA_ModeCfg(GPIO_Pin_9 | GPIO_Pin_14, GPIO_ModeIN_Floating);
     GPIOB_ModeCfg(bRXD1_ | bTXD1_, GPIO_ModeIN_Floating);
@@ -173,10 +231,16 @@ void board_hal_apply_safe_state(const board_pin_t *pin)
 
     switch (pin->safe_state) {
     case BOARD_PIN_SAFE_OUTPUT_LOW:
+        if (!safe_output_gate_enabled(pin)) {
+            return;
+        }
         hw_write(hw, 0);
         hw_mode(hw, GPIO_ModeOut_PP_5mA);
         break;
     case BOARD_PIN_SAFE_OUTPUT_HIGH:
+        if (!safe_output_gate_enabled(pin)) {
+            return;
+        }
         hw_write(hw, 1);
         hw_mode(hw, GPIO_ModeOut_PP_5mA);
         break;
@@ -206,6 +270,9 @@ void board_hal_write_output(const board_pin_t *pin, uint8_t high)
     hw_pin_t hw;
 
     if (lookup_hw_pin(pin, &hw)) {
+        if (!safe_output_gate_enabled(pin)) {
+            return;
+        }
         hw_write(hw, high);
     }
 }
@@ -231,6 +298,15 @@ void timebase_platform_delay_ms(uint32_t delay_ms)
         uint16_t chunk = delay_ms > 60000u ? 60000u : (uint16_t)delay_ms;
         mDelaymS(chunk);
         delay_ms -= chunk;
+    }
+}
+
+void timebase_platform_delay_us(uint32_t delay_us)
+{
+    while (delay_us > 0) {
+        uint16_t chunk = delay_us > 60000u ? 60000u : (uint16_t)delay_us;
+        mDelayuS(chunk);
+        delay_us -= chunk;
     }
 }
 
@@ -343,7 +419,7 @@ int audio_wt2003_platform_recv(uint8_t *data, uint8_t max_len, uint32_t timeout_
 #endif
 }
 
-static uint32_t motor_pwm_cycle_for_hz(uint32_t pwm_hz)
+static uint32_t motor_timer_cycle_for_hz(uint32_t pwm_hz)
 {
     uint32_t cycle;
 
@@ -351,7 +427,7 @@ static uint32_t motor_pwm_cycle_for_hz(uint32_t pwm_hz)
         pwm_hz = APP_MOTOR_PWM_DEFAULT_HZ;
     }
 
-    cycle = FREQ_SYS / (pwm_hz * MOTOR_PWM_CLOCK_DIV);
+    cycle = FREQ_SYS / pwm_hz;
     if (cycle < 2u) {
         cycle = 2u;
     }
@@ -361,14 +437,70 @@ static uint32_t motor_pwm_cycle_for_hz(uint32_t pwm_hz)
     return cycle;
 }
 
+static uint16_t motor_pwmx_cycle_for_hz(uint32_t pwm_hz)
+{
+    uint32_t cycle;
+
+    if (pwm_hz == 0) {
+        pwm_hz = APP_MOTOR_PWM_DEFAULT_HZ;
+    }
+
+    cycle = FREQ_SYS / (pwm_hz * MOTOR_PWMX_CLOCK_DIV);
+    if (cycle < 2u) {
+        cycle = 2u;
+    }
+    if (cycle > 65535u) {
+        cycle = 65535u;
+    }
+    return (uint16_t)cycle;
+}
+
 static uint16_t motor_pwm_duty_ticks(uint16_t duty_permille)
 {
     uint32_t ticks = ((uint32_t)motor_pwmx_cycle_ticks * duty_permille) / 1000u;
 
+    if (duty_permille > 0u && ticks == 0u) {
+        ticks = 1u;
+    }
     if (ticks > motor_pwmx_cycle_ticks) {
         ticks = motor_pwmx_cycle_ticks;
     }
     return (uint16_t)ticks;
+}
+
+static void motor_pwmx_configure_globals(void)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    if (motor_pwmx_cycle_ticks == 0u) {
+        motor_pwm_hz = APP_MOTOR_PWM_DEFAULT_HZ;
+        motor_timer_cycle_ticks = motor_timer_cycle_for_hz(motor_pwm_hz);
+        motor_pwmx_cycle_ticks = motor_pwmx_cycle_for_hz(motor_pwm_hz);
+    }
+    motor_pwm_platform_initialized = 1u;
+    PWMX_CLKCfg(MOTOR_PWMX_CLOCK_DIV);
+    PWMX_16bit_CycleCfg((uint16_t)(motor_pwmx_cycle_ticks - 1u));
+#endif
+}
+
+static void motor_timer_configure_globals(void)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    if (motor_timer_cycle_ticks == 0u) {
+        motor_pwm_hz = APP_MOTOR_PWM_DEFAULT_HZ;
+        motor_timer_cycle_ticks = motor_timer_cycle_for_hz(motor_pwm_hz);
+        motor_pwmx_cycle_ticks = motor_pwmx_cycle_for_hz(motor_pwm_hz);
+    }
+    motor_pwm_platform_initialized = 1u;
+
+    GPIOPinRemap(DISABLE, RB_PIN_TMR1); /* PA10/TMR1 is /PWM_A2 on this PCB. */
+    GPIOPinRemap(DISABLE, RB_PIN_TMR2); /* PA11/TMR2 is /PWM_A1 on this PCB. */
+
+    TMR1_PWMCycleCfg(motor_timer_cycle_ticks);
+    TMR1_PWMInit(High_Level, PWM_Times_1);
+
+    TMR2_PWMCycleCfg(motor_timer_cycle_ticks);
+    TMR2_PWMInit(High_Level, PWM_Times_1);
+#endif
 }
 
 static void motor_pwmx_disable(uint8_t channel)
@@ -386,8 +518,9 @@ static void motor_timer1_disable_low(void)
     TMR1_PWMDisable();
     TMR1_Disable();
 #endif
-    GPIOB_ResetBits(bTMR1_);
-    GPIOB_ModeCfg(bTMR1_, GPIO_ModeOut_PP_5mA);
+    GPIOPinRemap(DISABLE, RB_PIN_TMR1); /* Keep TMR1 on PA10; PB10 is USB D-. */
+    GPIOA_ResetBits(bTMR1);
+    GPIOA_ModeCfg(bTMR1, GPIO_ModeOut_PP_5mA);
 }
 
 static void motor_timer2_disable_low(void)
@@ -396,6 +529,7 @@ static void motor_timer2_disable_low(void)
     TMR2_PWMDisable();
     TMR2_Disable();
 #endif
+    GPIOPinRemap(DISABLE, RB_PIN_TMR2); /* Keep TMR2 on PA11; PB11 is USB D+. */
     GPIOA_ResetBits(bTMR2);
     GPIOA_ModeCfg(bTMR2, GPIO_ModeOut_PP_5mA);
 }
@@ -405,6 +539,46 @@ static void motor_pwmx_disable_low(uint8_t channel, hw_pin_t hw)
     motor_pwmx_disable(channel);
     hw_write(hw, 0);
     hw_mode(hw, GPIO_ModeOut_PP_5mA);
+}
+
+void northpole_diag_force_gpio_output(board_output_id_t output, uint8_t high)
+{
+    hw_pin_t hw;
+    const board_pin_t *pin;
+
+    if (output >= BOARD_OUTPUT_COUNT) {
+        return;
+    }
+
+    switch (output) {
+    case BOARD_OUTPUT_PWM_A1:
+        motor_timer2_disable_low();
+        break;
+    case BOARD_OUTPUT_PWM_A2:
+        motor_timer1_disable_low();
+        break;
+    case BOARD_OUTPUT_PWM_B1:
+        motor_pwmx_disable(CH_PWM9);
+        break;
+    case BOARD_OUTPUT_PWM_B2:
+        motor_pwmx_disable(CH_PWM7);
+        break;
+    case BOARD_OUTPUT_PWM_G1:
+        motor_pwmx_disable(CH_PWM5);
+        break;
+    case BOARD_OUTPUT_PWM_G2:
+        motor_pwmx_disable(CH_PWM4);
+        break;
+    default:
+        break;
+    }
+
+    board_output_write(output, high);
+    pin = board_output_pin(output);
+    if (pin != NULL && lookup_hw_pin(pin, &hw)) {
+        hw_write(hw, high);
+        hw_mode(hw, GPIO_ModeOut_PP_5mA);
+    }
 }
 
 static void motor_driver_static_apply(motor_driver_id_t driver,
@@ -450,8 +624,9 @@ static void motor_driver_static_apply(motor_driver_id_t driver,
 void motor_drv8837_platform_init(uint32_t pwm_hz)
 {
     motor_pwm_hz = pwm_hz == 0 ? APP_MOTOR_PWM_DEFAULT_HZ : pwm_hz;
-    motor_timer_cycle_ticks = motor_pwm_cycle_for_hz(motor_pwm_hz);
-    motor_pwmx_cycle_ticks = (uint16_t)motor_timer_cycle_ticks;
+    motor_timer_cycle_ticks = motor_timer_cycle_for_hz(motor_pwm_hz);
+    motor_pwmx_cycle_ticks = motor_pwmx_cycle_for_hz(motor_pwm_hz);
+    motor_pwm_platform_initialized = 1u;
 
     motor_timer1_disable_low();
     motor_timer2_disable_low();
@@ -461,7 +636,8 @@ void motor_drv8837_platform_init(uint32_t pwm_hz)
     motor_pwmx_disable_low(CH_PWM4, (hw_pin_t){HW_PORT_A, bPWM4});
 
 #if APP_MOTOR_PWM_BACKEND_ENABLE
-    GPIOPinRemap(ENABLE, RB_PIN_TMR1);
+    GPIOPinRemap(DISABLE, RB_PIN_TMR1); /* PA10/TMR1 is /PWM_A2 on this PCB. */
+    GPIOPinRemap(DISABLE, RB_PIN_TMR2); /* PA11/TMR2 is /PWM_A1 on this PCB. */
 
     TMR1_PWMCycleCfg(motor_timer_cycle_ticks);
     TMR1_PWMActDataWidth(0);
@@ -471,8 +647,7 @@ void motor_drv8837_platform_init(uint32_t pwm_hz)
     TMR2_PWMActDataWidth(0);
     TMR2_PWMInit(High_Level, PWM_Times_1);
 
-    PWMX_CLKCfg(MOTOR_PWM_CLOCK_DIV);
-    PWMX_16bit_CycleCfg((uint16_t)(motor_pwmx_cycle_ticks - 1u));
+    motor_pwmx_configure_globals();
     PWMX_16bit_ACTOUT(MOTOR_PWMX_CHANNELS, 0, High_Level, DISABLE);
 #endif
 }
@@ -480,7 +655,11 @@ void motor_drv8837_platform_init(uint32_t pwm_hz)
 static void motor_pwm_a_apply(motor_drv8837_mode_t mode, uint16_t duty_permille)
 {
 #if APP_MOTOR_PWM_BACKEND_ENABLE
-    uint32_t duty = ((uint32_t)motor_timer_cycle_ticks * duty_permille) / 1000u;
+    uint32_t duty;
+
+    motor_timer_configure_globals();
+
+    duty = ((uint32_t)motor_timer_cycle_ticks * duty_permille) / 1000u;
 
     if (duty > motor_timer_cycle_ticks) {
         duty = motor_timer_cycle_ticks;
@@ -489,6 +668,7 @@ static void motor_pwm_a_apply(motor_drv8837_mode_t mode, uint16_t duty_permille)
     switch (mode) {
     case MOTOR_DRV_FORWARD:
         motor_timer1_disable_low();
+        GPIOPinRemap(DISABLE, RB_PIN_TMR2);
         GPIOA_ModeCfg(bTMR2, GPIO_ModeOut_PP_5mA);
         TMR2_PWMActDataWidth(duty);
         TMR2_PWMEnable();
@@ -496,8 +676,8 @@ static void motor_pwm_a_apply(motor_drv8837_mode_t mode, uint16_t duty_permille)
         break;
     case MOTOR_DRV_REVERSE:
         motor_timer2_disable_low();
-        GPIOPinRemap(ENABLE, RB_PIN_TMR1);
-        GPIOB_ModeCfg(bTMR1_, GPIO_ModeOut_PP_5mA);
+        GPIOPinRemap(DISABLE, RB_PIN_TMR1);
+        GPIOA_ModeCfg(bTMR1, GPIO_ModeOut_PP_5mA);
         TMR1_PWMActDataWidth(duty);
         TMR1_PWMEnable();
         TMR1_Enable();
@@ -506,9 +686,9 @@ static void motor_pwm_a_apply(motor_drv8837_mode_t mode, uint16_t duty_permille)
         TMR1_PWMDisable();
         TMR2_PWMDisable();
         GPIOA_SetBits(bTMR2);
-        GPIOB_SetBits(bTMR1_);
+        GPIOA_SetBits(bTMR1);
         GPIOA_ModeCfg(bTMR2, GPIO_ModeOut_PP_5mA);
-        GPIOB_ModeCfg(bTMR1_, GPIO_ModeOut_PP_5mA);
+        GPIOA_ModeCfg(bTMR1, GPIO_ModeOut_PP_5mA);
         break;
     case MOTOR_DRV_COAST:
     default:
@@ -534,11 +714,13 @@ static void motor_pwmx_pair_apply(uint8_t forward_ch,
     switch (mode) {
     case MOTOR_DRV_FORWARD:
         motor_pwmx_disable_low(reverse_ch, reverse_pin);
+        motor_pwmx_configure_globals();
         hw_mode(forward_pin, GPIO_ModeOut_PP_5mA);
         PWMX_16bit_ACTOUT(forward_ch, duty, High_Level, ENABLE);
         break;
     case MOTOR_DRV_REVERSE:
         motor_pwmx_disable_low(forward_ch, forward_pin);
+        motor_pwmx_configure_globals();
         hw_mode(reverse_pin, GPIO_ModeOut_PP_5mA);
         PWMX_16bit_ACTOUT(reverse_ch, duty, High_Level, ENABLE);
         break;
@@ -596,24 +778,82 @@ void motor_drv8837_platform_apply(motor_driver_id_t driver,
 #endif
 }
 
-static inline void ws2812_nops(uint8_t count)
+void northpole_motor_pwm_diag_apply(motor_driver_id_t driver,
+                                    motor_drv8837_mode_t mode,
+                                    uint16_t duty_permille)
 {
-    while (count--) {
-        __asm__ volatile("nop");
+    if (duty_permille > 1000u) {
+        duty_permille = 1000u;
+    }
+    if (duty_permille == 0u && mode != MOTOR_DRV_BRAKE) {
+        mode = MOTOR_DRV_COAST;
+    }
+
+#if !APP_MOTOR_PWM_BACKEND_ENABLE
+    motor_driver_static_apply(driver, mode, duty_permille);
+#else
+    switch (driver) {
+    case MOTOR_DRV_A:
+        motor_pwm_a_apply(mode, duty_permille);
+        break;
+    case MOTOR_DRV_B:
+        motor_pwmx_pair_apply(CH_PWM9, (hw_pin_t){HW_PORT_B, bPWM9},
+                              CH_PWM7, (hw_pin_t){HW_PORT_B, bPWM7},
+                              mode, duty_permille);
+        break;
+    case MOTOR_DRV_G:
+        motor_pwmx_pair_apply(CH_PWM5, (hw_pin_t){HW_PORT_A, bPWM5},
+                              CH_PWM4, (hw_pin_t){HW_PORT_A, bPWM4},
+                              mode, duty_permille);
+        break;
+    default:
+        break;
+    }
+#endif
+}
+
+void northpole_ch592_motor_pwm_debug(uint8_t *initialized,
+                                     uint32_t *pwm_hz,
+                                     uint32_t *timer_cycle_ticks,
+                                     uint16_t *pwmx_cycle_ticks,
+                                     uint8_t *pwmx_clock_div,
+                                     uint16_t *duty_50_permille_ticks)
+{
+    if (initialized) {
+        *initialized = motor_pwm_platform_initialized;
+    }
+    if (pwm_hz) {
+        *pwm_hz = motor_pwm_hz;
+    }
+    if (timer_cycle_ticks) {
+        *timer_cycle_ticks = motor_timer_cycle_ticks;
+    }
+    if (pwmx_cycle_ticks) {
+        *pwmx_cycle_ticks = motor_pwmx_cycle_ticks;
+    }
+    if (pwmx_clock_div) {
+        *pwmx_clock_div = MOTOR_PWMX_CLOCK_DIV;
+    }
+    if (duty_50_permille_ticks) {
+        *duty_50_permille_ticks = motor_pwm_duty_ticks(50u);
     }
 }
+
+#define WS2812_STR2(value) #value
+#define WS2812_STR(value) WS2812_STR2(value)
+#define WS2812_NOPS(count) __asm__ volatile(".rept " WS2812_STR(count) "\n\tnop\n\t.endr\n")
 
 static inline void ws2812_send_bit(uint8_t bit)
 {
     R32_PA_OUT |= CH592_GPIOA_RGB_MASK;
     if (bit) {
-        ws2812_nops(24);
-        R32_PA_CLR |= CH592_GPIOA_RGB_MASK;
-        ws2812_nops(8);
+        WS2812_NOPS(APP_WS2812_T1H_NOPS);
+        R32_PA_CLR = CH592_GPIOA_RGB_MASK;
+        WS2812_NOPS(APP_WS2812_T1L_NOPS);
     } else {
-        ws2812_nops(7);
-        R32_PA_CLR |= CH592_GPIOA_RGB_MASK;
-        ws2812_nops(20);
+        WS2812_NOPS(APP_WS2812_T0H_NOPS);
+        R32_PA_CLR = CH592_GPIOA_RGB_MASK;
+        WS2812_NOPS(APP_WS2812_T0L_NOPS);
     }
 }
 
@@ -655,8 +895,9 @@ int rgb_ws2812_platform_write(const rgb_color_t *colors, uint8_t count, uint8_t 
     uint32_t irq_status = 0;
 
     /* Fixed NOP timing is calibrated for 60 MHz FREQ_SYS and is still
-     * pre-hardware. Validate T0H/T1H/period/reset timing on /LED before
-     * treating this backend as production-ready.
+     * hardware-validation pending. The XL-1010RGBC-WS2812B datasheet
+     * requires reset-low >200 us and GRB, MSB-first data. Validate actual
+     * T0H/T1H/period/reset timing on /LED with a logic analyzer.
      */
     if (!colors) {
         return -1;
@@ -670,15 +911,16 @@ int rgb_ws2812_platform_write(const rgb_color_t *colors, uint8_t count, uint8_t 
 
     GPIOA_ResetBits(CH592_GPIOA_RGB_MASK);
     GPIOA_ModeCfg(CH592_GPIOA_RGB_MASK, GPIO_ModeOut_PP_5mA);
+    mDelayuS(APP_WS2812_RESET_US);
 
     SYS_DisableAllIrq(&irq_status);
     for (uint8_t i = 0; i < count; ++i) {
         ws2812_send_color(colors[i], global_brightness);
     }
-    R32_PA_CLR |= CH592_GPIOA_RGB_MASK;
+    R32_PA_CLR = CH592_GPIOA_RGB_MASK;
     SYS_RecoverIrq(irq_status);
 
-    mDelayuS(90);
+    mDelayuS(APP_WS2812_RESET_US);
     return 0;
 }
 
@@ -755,6 +997,40 @@ int i2c_bus_platform_init(uint32_t bus_hz)
     I2C_ITConfig(I2C_IT_BUF, DISABLE);
     I2C_ITConfig(I2C_IT_EVT, DISABLE);
     I2C_ITConfig(I2C_IT_ERR, DISABLE);
+    return 0;
+}
+
+int i2c_bus_platform_debug_snapshot(i2c_bus_debug_t *debug)
+{
+    if (!debug) {
+        return -1;
+    }
+
+    debug->scl_level = (R32_PB_PIN & bSCL) ? 1u : 0u;
+    debug->sda_level = (R32_PB_PIN & bSDA) ? 1u : 0u;
+    debug->ctrl1 = R16_I2C_CTRL1;
+    debug->ctrl2 = R16_I2C_CTRL2;
+    debug->star1 = R16_I2C_STAR1;
+    debug->star2 = R16_I2C_STAR2;
+    debug->ckcfgr = R16_I2C_CKCFGR;
+    debug->pin_alternate = R16_PIN_ALTERNATE;
+    debug->pin_config2 = R32_PIN_CONFIG2;
+    return 0;
+}
+
+int i2c_bus_platform_release_debug_pins(void)
+{
+    /*
+     * PB14/PB15 are shared by CH592 TIO/TCK debug and SCL/SDA on this PCB.
+     * Set RB_DEBUG_EN to disable the runtime debug function so the I2C
+     * peripheral can own the pins. This does not change flash config fuses,
+     * but WCH-Link attach may be unavailable until reset/download mode.
+     */
+    R16_PIN_ALTERNATE &= (uint16_t)~(RB_PIN_SPI0 | RB_PIN_MODEM);
+    R16_PIN_ALTERNATE |= RB_DEBUG_EN;
+    GPIOB_ModeCfg(bSCL | bSDA, GPIO_ModeIN_PU);
+    I2C_SoftwareResetCmd(ENABLE);
+    I2C_SoftwareResetCmd(DISABLE);
     return 0;
 }
 

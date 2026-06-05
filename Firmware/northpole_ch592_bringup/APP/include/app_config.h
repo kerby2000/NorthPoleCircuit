@@ -30,6 +30,11 @@
 #define APP_RGB_DEFAULT_BRIGHTNESS 8u
 #define APP_WS2812_BITBANG_ASSUMED_FREQ_SYS_HZ 60000000u
 #define APP_WS2812_LOGIC_ANALYZER_VALIDATED 0u
+#define APP_WS2812_T0H_NOPS 16
+#define APP_WS2812_T0L_NOPS 54
+#define APP_WS2812_T1H_NOPS 52
+#define APP_WS2812_T1L_NOPS 16
+#define APP_WS2812_RESET_US 240u
 #define APP_RGB_COLOR_ORDER_GRB 0u
 #define APP_RGB_COLOR_ORDER_RGB 1u
 #define APP_RGB_COLOR_ORDER_BRG 2u
@@ -84,6 +89,83 @@
  */
 #ifndef APP_DEV_BOARD_SKIP_NORTHPOLE_SAFE_PINS
 #define APP_DEV_BOARD_SKIP_NORTHPOLE_SAFE_PINS (APP_DEV_BOARD_BLE_SMOKE || APP_DEV_BOARD_BLE_BROADCASTER_SMOKE || APP_DEV_BOARD_BRINGUP_APP_SMOKE)
+#endif
+
+/* Target-board bring-up gates. These default to the intended full target
+ * firmware behavior, but can be disabled one subsystem at a time to isolate
+ * first-board failures without falling back to the dev-board smoke build.
+ */
+#ifndef APP_TARGET_ENABLE_SAFE_PINS
+#define APP_TARGET_ENABLE_SAFE_PINS 1
+#endif
+
+#ifndef APP_TARGET_ENABLE_EARLY_SAFE_PINS
+#define APP_TARGET_ENABLE_EARLY_SAFE_PINS APP_TARGET_ENABLE_SAFE_PINS
+#endif
+
+#ifndef APP_TARGET_ENABLE_BOARD_SAFE_INIT
+#define APP_TARGET_ENABLE_BOARD_SAFE_INIT APP_TARGET_ENABLE_SAFE_PINS
+#endif
+
+/* Fine-grained safe-output gates for first target-board isolation. These only
+ * affect forced safe GPIO configuration; subsystem gates still control whether
+ * drivers such as RGB, motor, I2C, audio, touch, and Hall are initialized.
+ */
+#ifndef APP_TARGET_SAFE_ENABLE_MOTOR_A
+#define APP_TARGET_SAFE_ENABLE_MOTOR_A 1
+#endif
+
+#ifndef APP_TARGET_SAFE_ENABLE_MOTOR_B
+#define APP_TARGET_SAFE_ENABLE_MOTOR_B 1
+#endif
+
+#ifndef APP_TARGET_SAFE_ENABLE_MOTOR_G
+#define APP_TARGET_SAFE_ENABLE_MOTOR_G 1
+#endif
+
+#ifndef APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP
+#define APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP 1
+#endif
+
+#ifndef APP_TARGET_SAFE_ENABLE_RGB_DATA
+#define APP_TARGET_SAFE_ENABLE_RGB_DATA 1
+#endif
+
+#ifndef APP_TARGET_ENABLE_POWER_IP5209
+#define APP_TARGET_ENABLE_POWER_IP5209 1
+#endif
+
+#ifndef APP_TARGET_ENABLE_HALL
+#define APP_TARGET_ENABLE_HALL 1
+#endif
+
+#ifndef APP_TARGET_ENABLE_TOUCH
+#define APP_TARGET_ENABLE_TOUCH 1
+#endif
+
+#ifndef APP_TARGET_ENABLE_RGB
+#define APP_TARGET_ENABLE_RGB 1
+#endif
+
+#ifndef APP_TARGET_ENABLE_AUDIO
+#define APP_TARGET_ENABLE_AUDIO 1
+#endif
+
+#ifndef APP_TARGET_ENABLE_MOTOR
+#define APP_TARGET_ENABLE_MOTOR 1
+#endif
+
+#ifndef APP_TARGET_PRINT_PIN_MAP_AT_BOOT
+#define APP_TARGET_PRINT_PIN_MAP_AT_BOOT 0
+#endif
+
+/* Debug isolation gate. WCH EVT BLE examples initialize UART1 before BLE init,
+ * and WCH PRINT() uses UART1 when DEBUG=1. The target board routes UART1 to
+ * the WT2003 audio chip, so normal target firmware should not depend on that
+ * path. This gate is only for isolating startup differences.
+ */
+#ifndef APP_TARGET_USE_EVT_UART_DEBUG_STARTUP
+#define APP_TARGET_USE_EVT_UART_DEBUG_STARTUP 0
 #endif
 
 #ifndef APP_MOTOR_PWM_BACKEND_ENABLE

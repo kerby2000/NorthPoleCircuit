@@ -8,8 +8,10 @@
 
 #if defined(__GNUC__)
 #define FW_WEAK __attribute__((weak))
+#define FW_NOINLINE __attribute__((noinline))
 #else
 #define FW_WEAK
+#define FW_NOINLINE
 #endif
 
 static motor_drv8837_state_t state[MOTOR_DRV_COUNT];
@@ -86,9 +88,10 @@ static void platform_apply_static(motor_driver_id_t driver, motor_drv8837_mode_t
     }
 }
 
-FW_WEAK void motor_drv8837_platform_init(uint32_t pwm_hz)
+FW_WEAK FW_NOINLINE void motor_drv8837_platform_init(uint32_t pwm_hz)
 {
-    (void)pwm_hz;
+    volatile uint32_t keep_call = pwm_hz;
+    (void)keep_call;
 }
 
 FW_WEAK void motor_drv8837_platform_apply(motor_driver_id_t driver,

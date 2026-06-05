@@ -24,7 +24,7 @@ Current bring-up behavior:
 
 Important caveats:
 
-- WT2003 serial commands may not respond while the chip is mounted to a computer as USB storage through J4.
+- WT2003 serial commands may not respond while the chip is mounted to a computer as USB storage through a corrected or reworked J4 path. Current PCB has J4 pin 1 unconnected, so J4 update is blocked until fixed.
 - Copy order controls index playback; filename order is not reliable for index playback.
 - Filename playback uses the name without extension and names should be 8 bytes or fewer.
 - Do not claim audio works until the first-board sequence in `wt2003_protocol.md` passes.

@@ -7,5 +7,6 @@ void timebase_init(void);
 uint32_t timebase_ms(void);
 void timebase_advance_ms(uint32_t delta_ms);
 void timebase_delay_ms(uint32_t delay_ms);
+void timebase_delay_us(uint32_t delay_us);
 
 #endif /* TIMEBASE_H */

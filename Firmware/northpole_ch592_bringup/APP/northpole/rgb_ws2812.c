@@ -59,6 +59,11 @@ void rgb_ws2812_show(void)
     board_output_write(BOARD_OUTPUT_RGB_DATA, 0);
 }
 
+void rgb_ws2812_force_idle_low(void)
+{
+    board_output_write(BOARD_OUTPUT_RGB_DATA, 0);
+}
+
 rgb_color_t rgb_ws2812_get(uint8_t index)
 {
     rgb_color_t empty = {0, 0, 0};

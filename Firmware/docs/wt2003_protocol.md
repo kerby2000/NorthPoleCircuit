@@ -71,23 +71,26 @@ Query commands reuse the first parameter as data, not always as an error code. T
 
 ## USB Storage Caveat
 
-When the WT2003 is connected to a computer as USB storage through J4, serial commands may not respond. After copying files, disconnect the WT2003 USB cable before UART playback.
+Current PCB caveat: J4 pin 1 is unconnected, so WT2003 USB storage/update through J4 is blocked until +5 V is routed or a rework power path is documented.
+
+When the WT2003 is connected to a computer as USB storage through a corrected or reworked J4 path, serial commands may not respond. After copying files, disconnect the WT2003 USB cable before UART playback.
 
 Index playback depends on copy order, not filename sort order. Filename playback uses the name without extension, and names should be 8 bytes or fewer before `.mp3` or `.wav`.
 
 ## Hardware Checklist
 
-1. Copy one low-volume file named `0001.mp3` to WT2003 external flash via J4.
-2. Disconnect the WT2003 USB cable.
-3. Power-cycle the board.
-4. Wait at least 1 s after WT2003 power-up.
-5. Run `audio version`.
-6. Run `audio qperiph`.
-7. Run `audio qcount-ext`.
-8. Run `audio volume 5`.
-9. Run `audio play-index 1`.
-10. Check BUSY goes high while playing.
-11. Run `audio stop`.
-12. Check BUSY returns low.
+1. Do not start file-copy validation until the J4 +5 V issue is fixed or reworked.
+2. Copy one low-volume file named `0001.mp3` to WT2003 external flash through the corrected WT2003 USB update path.
+3. Disconnect the WT2003 USB cable.
+4. Power-cycle the board.
+5. Wait at least 1 s after WT2003 power-up.
+6. Run `audio version`.
+7. Run `audio qperiph`.
+8. Run `audio qcount-ext`.
+9. Run `audio volume 5`.
+10. Run `audio play-index 1`.
+11. Check BUSY goes high while playing.
+12. Run `audio stop`.
+13. Check BUSY returns low.
 
 Do not send serial commands while the WT2003 is mounted as PC USB storage, and do not assume file index order equals filename order.

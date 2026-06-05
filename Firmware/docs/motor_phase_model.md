@@ -10,6 +10,26 @@ The current PCB maps the DRV8837 inputs as:
 
 PB0 controls the global DRV8837 `~SLEEP` net. The safe state is `/SLEEP` low and all six IN pins driven low, which keeps the DRV8837s asleep/coast.
 
+## Next PCB Revision Notes
+
+Rev-A target-board testing proved the static DRV8837 GPIO path for A and B:
+the selected input reaches about 3.3 V, the opposite input stays low, and the
+bridge output switches accordingly. The remaining implementation risk is the
+mixed CH592 PWM resource mapping, especially A on TMR1/TMR2. A suspect scope
+lead produced misleading flat captures during PWM bring-up, so future PWM
+failures should first be checked against static GPIO output and probe integrity.
+
+For the next PCB revision, prefer routing the main propulsion pair A/B to normal
+CH592 PWMX-capable pins instead of timer pins:
+
+- A/B are the propulsion phases and should have the easiest, most symmetric PWM implementation.
+- G is the guard/centering rail and can tolerate the less convenient timer PWM path if pin count forces a tradeoff.
+- Best case is all six DRV8837 input pins on normal PWMX-capable pads.
+- Avoid using remapped `PB10/TMR1_` or `PB11/TMR2_` for motor control because those pads overlap the CH592 USB D-/D+ functions used on this board.
+
+Do not cut current-board A traces until timer-PWM behavior has been isolated.
+Static A GPIO and A bridge output behavior are already proven.
+
 ## Framework Behavior
 
 - `board_init_safe_pins()` drives all six motor inputs low and PB0 `/SLEEP` low before any subsystem init.

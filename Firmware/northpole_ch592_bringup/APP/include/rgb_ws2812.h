@@ -15,6 +15,7 @@ uint8_t rgb_ws2812_get_brightness(void);
 void rgb_ws2812_set(uint8_t index, rgb_color_t color);
 void rgb_ws2812_clear(void);
 void rgb_ws2812_show(void);
+void rgb_ws2812_force_idle_low(void);
 rgb_color_t rgb_ws2812_get(uint8_t index);
 
 #endif /* RGB_WS2812_H */

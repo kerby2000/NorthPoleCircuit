@@ -472,6 +472,11 @@ def generate_audit(
     wt_usb_pass = wt_usb_pass and wt_dm_ok and wt_dp_ok
     wt_usb_rows.append(["U6 D-", "/DM2", wt_dm.net if wt_dm else "(missing)", "PASS" if wt_dm_ok else "BLOCKED"])
     wt_usb_rows.append(["U6 D+", "/DP2", wt_dp.net if wt_dp else "(missing)", "PASS" if wt_dp_ok else "BLOCKED"])
+    wt_usb_note = (
+        "J4 is not ARM SWD. It uses the Tag-Connect footprint as a WT2003 USB update connector: 1=5V, 2=D+, 4=D-, 5=GND. Use only with a custom USB adapter/cable."
+        if wt_usb_pass
+        else "J4 is not ARM SWD. Current PCB is BLOCKED for WT2003 USB update: J4 pin 1 is not on +5V, so only D+/D-/GND are present. Do not use J4 for WT2003 USB update until +5V is routed or a rework power path is documented."
+    )
 
     rows = [["Pad", "Pin function", "Net", "Firmware role", "Connected parsed pads"]]
     for pad in sorted(u2.pads, key=lambda item: int(item.number)):
@@ -747,6 +752,12 @@ def generate_audit(
         "",
         table(rows),
         "",
+        "### Critical Firmware GPIO Mapping Notes",
+        "",
+        "- `/PWM_A2` is U2 pad 1, `PA10/TMR1`. Firmware must use the non-remapped `TMR1` signal on `PA10`.",
+        "- Do not use `PB10/TMR1_` for `/PWM_A2`; on CH592X `PB10` is also `UD-` and is connected to USB `/DN` on U2 pad 16.",
+        "- `/PWM_A1` is U2 pad 32, `PA11/TMR2`. Do not remap `TMR2` to `PB11`, because `PB11` is USB `/DP` on U2 pad 15.",
+        "",
         "## Audio UART Check",
         "",
         table(audio_rows),
@@ -794,7 +805,7 @@ def generate_audit(
         "",
         table(wt_usb_rows),
         "",
-        "J4 is not ARM SWD. It uses the Tag-Connect footprint as a WT2003 USB update connector: 1=5V, 2=D+, 4=D-, 5=GND. Use only with a custom USB adapter/cable.",
+        wt_usb_note,
         "",
         "## Explicit No-Connect Or Isolated U2 Nets",
         "",

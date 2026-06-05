@@ -50,13 +50,13 @@ Do not flash a dev-board smoke build to the target board for first electrical va
 10. Run `pins verify`.
 11. Scope PB0 `/SLEEP` and all six DRV8837 inputs at reset and after `motor off`.
 12. Scope the RGB data line idle state.
-13. Confirm J4 is treated only as WT2003 USB update, not SWD/debug.
+13. Confirm J4 is treated as WT2003 USB update only, not SWD/debug, and note that current PCB revision has J4 pin 1 unconnected.
 14. Test BLE advertising and read the diagnostic service.
-15. Only then test RGB commands.
+15. Only then test RGB commands. Start with `rgb idle-low`, then `rgb off`; if `rgb off` lights the LEDs, stop RGB testing and capture `/LED` timing with a logic analyzer.
 16. Test Hall inputs.
 17. Test touch raw readings.
-18. Test WT2003 audio status and protocol commands only after preparing one low-volume `0001.mp3` asset through J4 and disconnecting the WT2003 USB cable.
-19. Test `i2c scan` and `ip5209 status` without WCH-LinkE actively debugging.
+18. Test WT2003 audio status and protocol commands only after the J4 +5 V update-power issue is fixed or a rework path is documented, then prepare one low-volume `0001.mp3` asset and disconnect the WT2003 USB cable.
+19. Test `i2c lines`, then `i2c scan` and `ip5209 status` without WCH-LinkE actively debugging. If SCL/SDA are high but START never completes, try `i2c release-debug` and repeat the scan.
 20. Test motor logic with no load or disconnected coils first.
 21. Test motor PWM with current limiting and a logic analyzer before allowing any real motion.
 
@@ -68,7 +68,7 @@ Use this checklist the first time the actual NorthPole PCB is flashed.
 
 - Confirm no obvious solder bridges on CH592X, DRV8837s, WT2003, IP5209, USB-C, and regulator pins.
 - Confirm J3 is the WCH-LinkE/debug connector.
-- Confirm J4 is the WT2003 USB update connector, not debug.
+- Confirm J4 is the WT2003 USB update connector, not debug, but mark it blocked for file update on this PCB revision because J4 pin 1 is unconnected.
 - If practical, leave the motor/load disconnected for the first power-up.
 - If R14/R15 are populated, remember that PB14/PB15 are shared between WCH-LinkE debug and IP5209 I2C.
 
@@ -190,11 +190,13 @@ pins verify
 faults
 settings show
 motor off
+rgb idle-low
 rgb off
 audio status
 audio version
 audio qperiph
 ip5209 status
+ip5209 dump
 ```
 
 ## Probe Points And Expected Safe States
@@ -221,8 +223,42 @@ ip5209 status
 | I2C SDA / WCH TIO | pad 12 `SDA` | `/SWDIO`, through R15 to `/SDA` | J3 pin 2, R15, U7 SDA | Pull-up/high when idle; unavailable during active WCH-LinkE debug |
 | IP5209 INT | pad 10 `PA9` | `/INT` | U7 INT | Input; level depends PMIC |
 | USB D+ / D- | pads 15/16 | `/DP`, `/DN` | USB connector | Enumerates as CDC when enabled |
-| WT2003 USB update D+ | WT2003 pad 5 | `/DP2` | J4 pin 2 | Only for WT2003 update cable |
-| WT2003 USB update D- | WT2003 pad 4 | `/DM2` | J4 pin 4 | Only for WT2003 update cable |
+| WT2003 USB update +5V | J4 pin 1 | unconnected | J4 pin 1 | BLOCKED: expected USB/update +5 V is missing |
+| WT2003 USB update D+ | WT2003 pad 5 | `/DP2` | J4 pin 2 | Data path present, but update mode blocked until +5 V path is fixed |
+| WT2003 USB update D- | WT2003 pad 4 | `/DM2` | J4 pin 4 | Data path present, but update mode blocked until +5 V path is fixed |
+
+## Target-Board I2C / IP5209 Baseline
+
+The first target-board I2C test showed that PB14/PB15 stayed in CH592 runtime debug mode after boot. Before releasing those pins, `i2c lines` showed idle-high lines but `i2c scan` found no devices. After:
+
+```text
+i2c release-debug
+```
+
+the CH592 pin alternate register changed to `0x2000`, `ip5209 probe` returned `rc=0`, and `i2c scan` found `0x75`.
+
+Use this sequence for IP5209 validation:
+
+```text
+i2c lines
+i2c release-debug
+ip5209 probe
+ip5209 status
+ip5209 dump
+i2c scan
+```
+
+Expected:
+
+```text
+ip5209 probe addr=0x75 rc=0
+ip5209 addr=0x75 present=1 ...
+i2c found=1 0x75
+```
+
+`ip5209 status` prints `boost_cfg`, decoded from IP5209 register `0x01` bit 2. Treat it as a configuration/status bit only. It is not a measurement of the +5 V rail.
+
+Do not make IP5209 configuration writes during first bring-up unless there is a specific register-level reason and the existing register value has been read first.
 
 ## Connector Pinouts
 
@@ -241,31 +277,32 @@ J4 WT2003 USB update:
 
 | Pin | Function |
 |---:|---|
-| 1 | +5V |
+| 1 | BLOCKED: expected +5V, actual unconnected on current PCB |
 | 2 | D+ |
 | 3 | NC |
 | 4 | D- |
 | 5 | GND |
 | 6 | NC |
 
-J4 is not ARM SWD. Use only a custom USB adapter/cable.
+J4 is not ARM SWD. Do not use it for WT2003 USB update until the missing +5 V path is fixed or a rework procedure is documented.
 
 ## WT2003 Audio Validation
 
 Run this only after USB CDC, safe pins, RGB idle, BLE advertising, Hall/touch raw checks, and I2C non-hanging behavior are understood.
 
-1. Copy one file named `0001.mp3` to WT2003 external flash via J4.
-2. Disconnect the WT2003 USB cable.
-3. Power-cycle the board.
-4. Wait at least 1 s after WT2003 power-up.
-5. Run `audio version`.
-6. Run `audio qperiph`.
-7. Run `audio qcount-ext`.
-8. Run `audio volume 5`.
-9. Run `audio play-index 1`.
-10. Check BUSY goes high while playing.
-11. Run `audio stop`.
-12. Check BUSY returns low.
+1. Do not start this sequence until the J4 pin 1 +5 V issue is fixed or a documented rework powers the WT2003 USB/update path.
+2. Copy one file named `0001.mp3` to WT2003 external flash through the corrected WT2003 USB update path.
+3. Disconnect the WT2003 USB cable.
+4. Power-cycle the board.
+5. Wait at least 1 s after WT2003 power-up.
+6. Run `audio version`.
+7. Run `audio qperiph`.
+8. Run `audio qcount-ext`.
+9. Run `audio volume 5`.
+10. Run `audio play-index 1`.
+11. Check BUSY goes high while playing.
+12. Run `audio stop`.
+13. Check BUSY returns low.
 
 Do not send serial commands while WT2003 is connected to a PC as USB storage. Do not assume file index order equals filename order.
 

@@ -8,6 +8,8 @@
 
 static i2c_bus_status_t bus_status;
 
+static void ensure_init(void);
+
 FW_WEAK int i2c_bus_platform_init(uint32_t bus_hz)
 {
     (void)bus_hz;
@@ -39,6 +41,17 @@ FW_WEAK int i2c_bus_platform_write_reg8(uint8_t addr7, uint8_t reg, uint8_t valu
     return -1;
 }
 
+FW_WEAK int i2c_bus_platform_debug_snapshot(i2c_bus_debug_t *debug)
+{
+    (void)debug;
+    return -1;
+}
+
+FW_WEAK int i2c_bus_platform_release_debug_pins(void)
+{
+    return -1;
+}
+
 void i2c_bus_init(uint32_t bus_hz)
 {
     int rc;
@@ -56,6 +69,25 @@ void i2c_bus_init(uint32_t bus_hz)
 i2c_bus_status_t i2c_bus_status(void)
 {
     return bus_status;
+}
+
+int i2c_bus_debug_snapshot(i2c_bus_debug_t *debug)
+{
+    if (!debug) {
+        return -1;
+    }
+    ensure_init();
+    return i2c_bus_platform_debug_snapshot(debug);
+}
+
+int i2c_bus_release_debug_pins(void)
+{
+    int rc = i2c_bus_platform_release_debug_pins();
+    if (rc == 0) {
+        i2c_bus_init(bus_status.bus_hz ? bus_status.bus_hz : I2C_BUS_DEFAULT_HZ);
+    }
+    bus_status.last_error = (uint16_t)(rc < 0 ? -rc : rc);
+    return rc;
 }
 
 static void ensure_init(void)

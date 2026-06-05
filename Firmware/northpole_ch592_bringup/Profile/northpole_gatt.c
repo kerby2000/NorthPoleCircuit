@@ -262,6 +262,7 @@ static bStatus_t northpole_WriteAttrCB(uint16_t connHandle,
 #endif
     switch (pValue[0]) {
     case NORTHPOLE_DIAG_CONTROL_RGB_ALL:
+#if APP_TARGET_ENABLE_RGB
         if (len < 4u) {
             return ATT_ERR_INVALID_VALUE_SIZE;
         } else {
@@ -272,17 +273,29 @@ static bStatus_t northpole_WriteAttrCB(uint16_t connHandle,
             rgb_ws2812_show();
         }
         return SUCCESS;
+#else
+        return ATT_ERR_UNLIKELY;
+#endif
     case NORTHPOLE_DIAG_CONTROL_CLEAR_FAULTS:
         fault_clear_all();
         return SUCCESS;
     case NORTHPOLE_DIAG_CONTROL_AUDIO_STOP:
+#if APP_TARGET_ENABLE_AUDIO
         return wt2003_stop() == AUDIO_STATUS_OK ? SUCCESS : ATT_ERR_UNLIKELY;
+#else
+        return ATT_ERR_UNLIKELY;
+#endif
     case NORTHPOLE_DIAG_CONTROL_AUDIO_PLAY_INDEX:
+#if APP_TARGET_ENABLE_AUDIO
         if (len < 3u) {
             return ATT_ERR_INVALID_VALUE_SIZE;
         }
         return wt2003_play_external_index(BUILD_UINT16(pValue[1], pValue[2])) == AUDIO_STATUS_OK ? SUCCESS : ATT_ERR_UNLIKELY;
+#else
+        return ATT_ERR_UNLIKELY;
+#endif
     case NORTHPOLE_DIAG_CONTROL_AUDIO_VOLUME:
+#if APP_TARGET_ENABLE_AUDIO
         if (len < 2u) {
             return ATT_ERR_INVALID_VALUE_SIZE;
         }
@@ -290,10 +303,21 @@ static bStatus_t northpole_WriteAttrCB(uint16_t connHandle,
             return ATT_ERR_INVALID_VALUE;
         }
         return wt2003_set_volume(pValue[1]) == AUDIO_STATUS_OK ? SUCCESS : ATT_ERR_UNLIKELY;
+#else
+        return ATT_ERR_UNLIKELY;
+#endif
     case NORTHPOLE_DIAG_CONTROL_AUDIO_PAUSE:
+#if APP_TARGET_ENABLE_AUDIO
         return wt2003_pause_resume() == AUDIO_STATUS_OK ? SUCCESS : ATT_ERR_UNLIKELY;
+#else
+        return ATT_ERR_UNLIKELY;
+#endif
     case NORTHPOLE_DIAG_CONTROL_AUDIO_QSTATUS:
+#if APP_TARGET_ENABLE_AUDIO
         return wt2003_query_status() == AUDIO_STATUS_OK ? SUCCESS : ATT_ERR_UNLIKELY;
+#else
+        return ATT_ERR_UNLIKELY;
+#endif
     default:
         return ATT_ERR_INVALID_VALUE;
     }

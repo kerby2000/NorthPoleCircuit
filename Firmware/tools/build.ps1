@@ -10,7 +10,9 @@ param(
 
     [string[]]$ExtraDefine = @(),
 
-    [string[]]$ExtraCFlag = @()
+    [string[]]$ExtraCFlag = @(),
+
+    [switch]$WchDebugPrint
 )
 
 $ErrorActionPreference = "Stop"
@@ -193,9 +195,22 @@ $commonArgs = @(
     "-fdata-sections",
     "-fno-common",
     "-g",
-    "-std=gnu99",
-    "-DDEBUG=1"
+    "-std=gnu99"
 )
+
+$devSmokeDefines = @(
+    "APP_DEV_BOARD_BLE_SMOKE=1",
+    "APP_DEV_BOARD_BLE_BROADCASTER_SMOKE=1",
+    "APP_DEV_BOARD_BRINGUP_APP_SMOKE=1"
+)
+$autoWchDebugPrint =
+    ($Profile -in @("evt-baseline", "evt-broadcaster-baseline", "broadcaster-ladder")) -or
+    (($ExtraDefine | Where-Object { $devSmokeDefines -contains $_ }).Count -gt 0)
+$forceNoWchDebugPrint = $ExtraCFlag -contains "-UDEBUG"
+
+if (!$forceNoWchDebugPrint -and ($WchDebugPrint -or $autoWchDebugPrint)) {
+    $commonArgs += "-DDEBUG=1"
+}
 if ($profileDefine) {
     $commonArgs += "-D$profileDefine"
 }

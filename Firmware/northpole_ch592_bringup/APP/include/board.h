@@ -81,6 +81,7 @@ const board_pin_t *board_input_pin(board_input_id_t input);
 
 void board_output_write(board_output_id_t output, uint8_t high);
 uint8_t board_output_last_state(board_output_id_t output);
+uint8_t board_output_read(board_output_id_t output);
 uint8_t board_input_read(board_input_id_t input);
 
 const char *board_safe_state_name(board_pin_safe_state_t state);

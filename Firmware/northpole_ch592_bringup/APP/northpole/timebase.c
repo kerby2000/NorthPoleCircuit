@@ -18,6 +18,11 @@ FW_WEAK void timebase_platform_delay_ms(uint32_t delay_ms)
     synthetic_ms += delay_ms;
 }
 
+FW_WEAK void timebase_platform_delay_us(uint32_t delay_us)
+{
+    synthetic_ms += (delay_us + 999u) / 1000u;
+}
+
 void timebase_init(void)
 {
     synthetic_ms = 0;
@@ -36,4 +41,9 @@ void timebase_advance_ms(uint32_t delta_ms)
 void timebase_delay_ms(uint32_t delay_ms)
 {
     timebase_platform_delay_ms(delay_ms);
+}
+
+void timebase_delay_us(uint32_t delay_us)
+{
+    timebase_platform_delay_us(delay_us);
 }

@@ -165,6 +165,11 @@ uint8_t board_output_last_state(board_output_id_t output)
     return output < BOARD_OUTPUT_COUNT ? output_state[output] : 0u;
 }
 
+uint8_t board_output_read(board_output_id_t output)
+{
+    return output < BOARD_OUTPUT_COUNT ? board_hal_read_input(output_pins[output]) : 0u;
+}
+
 uint8_t board_input_read(board_input_id_t input)
 {
     return input < BOARD_INPUT_COUNT ? board_hal_read_input(input_pins[input]) : 0u;

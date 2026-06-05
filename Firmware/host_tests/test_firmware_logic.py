@@ -1,5 +1,15 @@
 import unittest
 from dataclasses import dataclass
+from pathlib import Path
+import sys
+from types import SimpleNamespace
+
+
+SCOPE_TOOL_DIR = Path(__file__).resolve().parents[1] / "tools" / "scope"
+if str(SCOPE_TOOL_DIR) not in sys.path:
+    sys.path.insert(0, str(SCOPE_TOOL_DIR))
+
+from ip5209_lx_capture import analyze_channel, build_scale_checks, classify_capture
 
 
 SHELL_MAX_ARGS = 16
@@ -479,6 +489,51 @@ class Wt2003ProtocolTests(unittest.TestCase):
         self.assertEqual(kind, "frame")
         self.assertEqual(frame["command"], WT2003_CMD_QUERY_PERIPHERAL_STATUS)
         self.assertEqual(frame["params"], b"\x05")
+
+
+class ScopeAnalysisTests(unittest.TestCase):
+    def test_flat_lx_noise_is_not_switching(self):
+        times = [index * 1e-6 for index in range(100)]
+        volts = [3.90 + (0.02 if index % 2 else -0.02) for index in range(100)]
+        stat, pulses = analyze_channel(2, times, volts, signal="LX")
+        self.assertLess(stat.peak_to_peak_v, 0.5)
+        self.assertEqual(stat.edge_count, 0)
+        self.assertEqual(pulses, [])
+        self.assertEqual(classify_capture([stat], {2: pulses}), "NO_LX_SWITCHING_DETECTED")
+
+    def test_doubled_csv_with_dmm_reference_is_scale_suspect(self):
+        times = [index * 1e-6 for index in range(100)]
+        volts = [7.76 + (0.08 if index % 2 else -0.08) for index in range(100)]
+        stat, _ = analyze_channel(2, times, volts, signal="LX")
+        args = SimpleNamespace(ch1_dmm_v=None, ch2_dmm_v=3.87, ch3_dmm_v=None, ch4_dmm_v=None)
+        checks, warnings = build_scale_checks([stat], args)
+        self.assertEqual(checks[0].status, "CSV_SCALE_SUSPECT")
+        self.assertTrue(any("CSV_SCALE_SUSPECT" in warning for warning in warnings))
+
+    def test_short_lx_burst_classifies_as_startup_attempt(self):
+        times = [index * 1e-6 for index in range(100)]
+        volts = [3.9] * 100
+        for index in range(40, 45):
+            volts[index] = 1.0
+        stat, pulses = analyze_channel(2, times, volts, signal="LX")
+        self.assertGreaterEqual(len(pulses), 1)
+        self.assertEqual(classify_capture([stat], {2: pulses}), "LX_STARTUP_ATTEMPT_THEN_STOP")
+
+    def test_periodic_lx_with_low_vout_classifies_low_output(self):
+        times = [index * 1e-6 for index in range(120)]
+        lx = [5.0 if (index // 5) % 2 else 0.0 for index in range(120)]
+        vout = [2.8] * 120
+        lx_stat, lx_pulses = analyze_channel(2, times, lx, signal="LX")
+        vout_stat, _ = analyze_channel(3, times, vout, signal="VOUT")
+        self.assertEqual(classify_capture([lx_stat, vout_stat], {2: lx_pulses}), "LX_SWITCHING_BUT_VOUT_LOW")
+
+    def test_periodic_lx_with_good_vout_classifies_present(self):
+        times = [index * 1e-6 for index in range(120)]
+        lx = [5.0 if (index // 5) % 2 else 0.0 for index in range(120)]
+        vout = [5.1] * 120
+        lx_stat, lx_pulses = analyze_channel(2, times, lx, signal="LX")
+        vout_stat, _ = analyze_channel(3, times, vout, signal="VOUT")
+        self.assertEqual(classify_capture([lx_stat, vout_stat], {2: lx_pulses}), "LX_SWITCHING_PRESENT")
 
 
 if __name__ == "__main__":

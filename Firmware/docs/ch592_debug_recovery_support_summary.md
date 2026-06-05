@@ -214,15 +214,17 @@ The build now runs the KiCad audit and produces:
 Firmware\build\bringup\northpole_ch592_bringup.hex
 ```
 
+Historical note: this section captures the earlier failing state before the dev-board BLE/USB CDC smoke tests passed.
+
 After flashing North Pole bring-up firmware with WCHISPStudio, Windows reported:
 
 ```text
 Unknown USB Device (Device Descriptor Request Failed)
 ```
 
-This is currently interpreted as a likely custom USB CDC enumeration problem in the application firmware, not as a flashing failure.
+This was initially interpreted as a likely custom USB CDC enumeration problem in the application firmware, not as a flashing failure. It has since been superseded by a dev-board pass where Windows enumerated USB CDC and the shell/reset-recovery test passed.
 
-BLE scan did not show `NorthPole BLE`. The next intended baseline test is to flash the unmodified WCH BLE `Peripheral` example and scan for:
+BLE scan initially did not show `NorthPole BLE`. That has also been superseded by dev-board tests where `NorthPole BLE` advertised and the diagnostic GATT service was readable. The original fallback baseline was to flash the unmodified WCH BLE `Peripheral` example and scan for:
 
 ```text
 Simple Peripheral
@@ -266,4 +268,4 @@ WCHISPStudio still flashes
 - Do not install Zadig on WCH-LinkE interfaces.
 - Do not enable code/data protection during bring-up.
 - Do not rely on `wchisp config set` unless a fixed version is found.
-- Do not treat North Pole USB CDC as validated; it likely needs separate debugging.
+- Treat North Pole USB CDC as dev-board validated only. It still needs target-board and Linux validation before it becomes the only diagnostic path.

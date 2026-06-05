@@ -13,8 +13,22 @@ typedef struct {
     uint16_t last_error;
 } i2c_bus_status_t;
 
+typedef struct {
+    uint8_t scl_level;
+    uint8_t sda_level;
+    uint16_t ctrl1;
+    uint16_t ctrl2;
+    uint16_t star1;
+    uint16_t star2;
+    uint16_t ckcfgr;
+    uint16_t pin_alternate;
+    uint32_t pin_config2;
+} i2c_bus_debug_t;
+
 void i2c_bus_init(uint32_t bus_hz);
 i2c_bus_status_t i2c_bus_status(void);
+int i2c_bus_debug_snapshot(i2c_bus_debug_t *debug);
+int i2c_bus_release_debug_pins(void);
 int i2c_bus_probe(uint8_t addr7, uint32_t timeout_ms);
 int i2c_bus_scan(uint8_t *addresses, uint8_t max_addresses, uint32_t timeout_ms);
 int i2c_bus_read_reg8(uint8_t addr7, uint8_t reg, uint8_t *value, uint32_t timeout_ms);

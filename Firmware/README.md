@@ -456,7 +456,7 @@ Exit criteria:
 1. Confirm WT2003H4 power rails and reset state.
 2. Verify UART idle level and baud rate.
 3. Run `audio version`, `audio qperiph`, and `audio qcount-ext`.
-4. Program or install one minimal known-good `0001.mp3` asset through J4, then disconnect WT2003 USB.
+4. After the J4 +5 V update-power issue is fixed or a rework path is documented, program or install one minimal known-good `0001.mp3` asset, then disconnect WT2003 USB.
 5. Set `audio volume 5` and play a short low-volume test file with `audio play-index 1`.
 6. Test stop, volume, next-file, and error/status responses.
 7. Measure current draw and check for speaker pops at startup/shutdown.

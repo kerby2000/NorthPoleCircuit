@@ -1,0 +1,343 @@
+param(
+    [string]$SdkRoot = "C:\WCH\CH592EVT",
+    [string]$MounRiverRoot = "C:\MounRiver\MounRiver_Studio2"
+)
+
+$ErrorActionPreference = "Stop"
+
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+$firmwareRoot = Join-Path $repoRoot "Firmware"
+$buildScript = Join-Path $firmwareRoot "tools\build.ps1"
+$sourceBuild = Join-Path $firmwareRoot "build\bringup"
+$ladderRoot = Join-Path $firmwareRoot "build\target_ladder"
+
+New-Item -ItemType Directory -Force -Path $ladderRoot | Out-Null
+
+function Invoke-LadderStep {
+    param(
+        [string]$Name,
+        [string[]]$Defines,
+        [string[]]$ExtraCFlags = @()
+    )
+
+    Write-Host "== Building $Name =="
+    & $buildScript `
+        -Profile bringup `
+        -SdkRoot $SdkRoot `
+        -MounRiverRoot $MounRiverRoot `
+        -ExtraDefine $Defines `
+        -ExtraCFlag $ExtraCFlags
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Build failed for $Name"
+    }
+
+    $stepDir = Join-Path $ladderRoot $Name
+    New-Item -ItemType Directory -Force -Path $stepDir | Out-Null
+
+    foreach ($ext in @("hex", "elf", "map")) {
+        $src = Join-Path $sourceBuild "northpole_ch592_bringup.$ext"
+        if (Test-Path -LiteralPath $src) {
+            Copy-Item -LiteralPath $src -Destination (Join-Path $stepDir "northpole_ch592_bringup.$ext") -Force
+        }
+    }
+    $manifest = Join-Path $sourceBuild "build_manifest.txt"
+    if (Test-Path -LiteralPath $manifest) {
+        Copy-Item -LiteralPath $manifest -Destination (Join-Path $stepDir "build_manifest.txt") -Force
+    }
+
+    Set-Content -Encoding ascii -Path (Join-Path $stepDir "defines.txt") -Value ($Defines -join "`r`n")
+    if ($ExtraCFlags.Count -gt 0) {
+        Set-Content -Encoding ascii -Path (Join-Path $stepDir "extra_cflags.txt") -Value ($ExtraCFlags -join "`r`n")
+    }
+    Write-Host "LADDER_OK $stepDir\n"
+}
+
+$allOff = @(
+    "APP_TARGET_ENABLE_SAFE_PINS=0",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "00_dev_smoke_reference" @(
+    "APP_DEV_BOARD_BLE_SMOKE=1",
+    "APP_DEV_BOARD_BRINGUP_APP_SMOKE=1",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "00b_dev_app_smoke_reference" @(
+    "APP_DEV_BOARD_BRINGUP_APP_SMOKE=1",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "01_core_no_target_gpio" $allOff
+
+Invoke-LadderStep "01a_core_no_target_gpio_no_wch_debug" `
+    $allOff `
+    @("-UDEBUG")
+
+Invoke-LadderStep "01b_core_no_target_gpio_evt_uart_startup" (
+    $allOff + @(
+        "APP_TARGET_USE_EVT_UART_DEBUG_STARTUP=1"
+    )
+) @("-DDEBUG=1")
+
+Invoke-LadderStep "02aa_early_safe_inputs_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_EARLY_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_BOARD_SAFE_INIT=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_A=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_B=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_G=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP=0",
+    "APP_TARGET_SAFE_ENABLE_RGB_DATA=0",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02ab_early_safe_sleep_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_EARLY_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_BOARD_SAFE_INIT=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_A=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_B=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_G=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP=1",
+    "APP_TARGET_SAFE_ENABLE_RGB_DATA=0",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02ac_early_safe_rgb_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_EARLY_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_BOARD_SAFE_INIT=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_A=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_B=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_G=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP=0",
+    "APP_TARGET_SAFE_ENABLE_RGB_DATA=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02a_early_safe_sleep_rgb_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_EARLY_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_BOARD_SAFE_INIT=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_A=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_B=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_G=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP=1",
+    "APP_TARGET_SAFE_ENABLE_RGB_DATA=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02b_board_safe_sleep_rgb_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_EARLY_SAFE_PINS=0",
+    "APP_TARGET_ENABLE_BOARD_SAFE_INIT=1",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_A=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_B=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_G=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP=1",
+    "APP_TARGET_SAFE_ENABLE_RGB_DATA=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02c_safe_sleep_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_EARLY_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_BOARD_SAFE_INIT=1",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_A=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_B=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_G=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP=1",
+    "APP_TARGET_SAFE_ENABLE_RGB_DATA=0",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02d_safe_rgb_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_EARLY_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_BOARD_SAFE_INIT=1",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_A=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_B=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_G=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP=0",
+    "APP_TARGET_SAFE_ENABLE_RGB_DATA=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02e_safe_sleep_rgb_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_EARLY_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_BOARD_SAFE_INIT=1",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_A=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_B=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_G=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP=1",
+    "APP_TARGET_SAFE_ENABLE_RGB_DATA=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02f_safe_add_motor_bg" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_A=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_B=1",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_G=1",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP=1",
+    "APP_TARGET_SAFE_ENABLE_RGB_DATA=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02g_safe_motor_a_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_A=1",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_B=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_G=0",
+    "APP_TARGET_SAFE_ENABLE_MOTOR_SLEEP=1",
+    "APP_TARGET_SAFE_ENABLE_RGB_DATA=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02h_safe_pins_all" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "02_safe_pins_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=0",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "03_power_i2c_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=1",
+    "APP_TARGET_ENABLE_HALL=0",
+    "APP_TARGET_ENABLE_TOUCH=0",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "04_inputs_only" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=1",
+    "APP_TARGET_ENABLE_HALL=1",
+    "APP_TARGET_ENABLE_TOUCH=1",
+    "APP_TARGET_ENABLE_RGB=0",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "05_rgb_added" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=1",
+    "APP_TARGET_ENABLE_HALL=1",
+    "APP_TARGET_ENABLE_TOUCH=1",
+    "APP_TARGET_ENABLE_RGB=1",
+    "APP_TARGET_ENABLE_AUDIO=0",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "06_audio_added" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=1",
+    "APP_TARGET_ENABLE_HALL=1",
+    "APP_TARGET_ENABLE_TOUCH=1",
+    "APP_TARGET_ENABLE_RGB=1",
+    "APP_TARGET_ENABLE_AUDIO=1",
+    "APP_TARGET_ENABLE_MOTOR=0",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Invoke-LadderStep "07_full_target" @(
+    "APP_TARGET_ENABLE_SAFE_PINS=1",
+    "APP_TARGET_ENABLE_POWER_IP5209=1",
+    "APP_TARGET_ENABLE_HALL=1",
+    "APP_TARGET_ENABLE_TOUCH=1",
+    "APP_TARGET_ENABLE_RGB=1",
+    "APP_TARGET_ENABLE_AUDIO=1",
+    "APP_TARGET_ENABLE_MOTOR=1",
+    "APP_TARGET_PRINT_PIN_MAP_AT_BOOT=0"
+)
+
+Write-Host "Target ladder builds are in $ladderRoot"
