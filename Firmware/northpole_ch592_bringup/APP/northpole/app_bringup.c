@@ -4,7 +4,9 @@
 #include "fault.h"
 #include "hall.h"
 #include "log.h"
+#include "motion_control.h"
 #include "motor_drv8837.h"
+#include "northpole_ch592_port.h"
 #include "power_ip5209.h"
 #include "rgb_ws2812.h"
 #include "settings.h"
@@ -55,6 +57,9 @@ void app_bringup_init(void)
 #endif
 #if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_MOTOR
     motor_drv8837_init();
+#if APP_MOTION_CONTROL_ENABLE
+    motion_control_init();
+#endif
 #endif
     ble_service_init();
     shell_init();
@@ -75,6 +80,9 @@ void app_bringup_poll(void)
 #if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_TOUCH
     touch_poll();
 #endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_MOTOR && APP_TARGET_ENABLE_TOUCH && APP_MOTION_CONTROL_ENABLE
+    motion_control_poll();
+#endif
 #if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_AUDIO
     audio_wt2003_poll();
 #endif
@@ -84,7 +92,10 @@ void app_bringup_poll(void)
     ble_service_poll();
 
 #if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_MOTOR
-    if (!motor_drv8837_is_armed()) {
+    northpole_motor_wave_status_t wave_status;
+
+    northpole_motor_wave_status(&wave_status);
+    if (!motor_drv8837_is_armed() && !wave_status.running) {
         motor_drv8837_all_coast();
     }
 #endif

@@ -280,7 +280,166 @@ Values below about 4 us are diagnostic stress tests. They are useful for finding
 the practical limit of the current bit-banged scope visualization, but they are
 not yet a production timing guarantee.
 
-To run the full divider progression as separate screenshots:
+## Hardware-Timed Motor Wave
+
+After the GPIO visualization is proven, build and flash the hardware-timed
+motor-wave image:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Firmware\tools\build.ps1 -Profile bringup -ExtraDefine APP_MOTOR_PWM_BACKEND_ENABLE=1
+```
+
+Flash:
+
+```text
+Firmware\build\bringup\northpole_ch592_bringup.hex
+```
+
+The new shell commands are:
+
+```text
+motor wave-start <electrical_hz_x1000> <amplitude_permille> [AB|A|B|G|all] [sleep0|sleep1]
+motor wave-clkdiv <slot_us> <amplitude_permille> [AB|A|B|G|all] [sleep0|sleep1]
+motor wave-dma-a <slot_us> <amplitude_permille> [sleep0|sleep1]
+motor wave-dma-hybrid <slot_us> <amplitude_permille> [AB|A|all] [sleep0|sleep1]
+motor wave-run <electrical_hz_x1000> <amplitude_permille> <ms> [AB|A|B|G|all] [sleep0|sleep1]
+motor wave-status
+motor wave-stop
+```
+
+This path uses hardware PWM for the bridge inputs and TMR3 only as a duty-update
+scheduler:
+
+```text
+A1/A2 = TMR2/TMR1 PWM
+B1/B2 = PWM9/PWM7 PWM
+G1/G2 = PWM5/PWM4 PWM
+TMR3  = sine-table sample scheduler
+```
+
+Do not confuse the two rates:
+
+```text
+20 kHz = PWM carrier frequency
+electrical frequency = full A/B sine-table cycle frequency
+sample update rate = electrical frequency * 32 samples
+```
+
+For example, `wave-clkdiv 256` means one sine-table sample every `256 us`, or
+one full electrical cycle every `8.192 ms` (`122 Hz`). It is not a 20 kHz sine
+wave. The 20 kHz signal is the carrier inside each duty slot.
+
+Keep `/SLEEP` low for the first scope work:
+
+```text
+motor wave-clkdiv 10000 1000 AB sleep0
+motor wave-status
+motor wave-stop
+```
+
+Then compress the sample slot while watching the same physical probe hookup
+(`CH1=B2`, `CH2=A2`, `CH3=B1`, `CH4=A1`):
+
+```text
+motor wave-clkdiv 1024 1000 AB sleep0
+motor wave-stop
+motor wave-clkdiv 256 1000 AB sleep0
+motor wave-stop
+```
+
+At long timebase the duty envelope should match the 32-sample reference shape.
+At short timebase each active input should be a 20 kHz PWM carrier, with duty
+updated by TMR3. `wave-status` should report `running=1`, `sleep=0`, and an
+increasing `ticks` count.
+
+On 2026-06-05, `wave-clkdiv 64 1000 AB sleep0` still produced PWM activity on
+the scope but starved the USB CDC shell before `wave-stop` could be acknowledged.
+Treat values below `128 us` as stress tests only; the Python wrapper now rejects
+them unless `--allow-wave-starvation-risk` is explicitly provided.
+
+That starvation is not caused by continuous debug printing. At `64 us` slots,
+TMR3 interrupts at about `15.6 kHz` and updates multiple PWM channels, leaving
+too little service time for USB CDC, BLE/TMOS, and the main loop. DMA/offload
+would help only if it removes those high-rate duty updates from the CPU. The
+current CH59x SDK shows TMR1/TMR2 DMA support, which is promising for A1/A2, but
+we have not yet proven an equivalent DMA path for the PWMX channels used by B/G.
+No board rework is needed for the next firmware experiments.
+
+First DMA experiment:
+
+```text
+motor wave-dma-a 400 1000 sleep0
+motor wave-status
+motor wave-stop
+```
+
+This uses TMR2 DMA for A1 and TMR1 DMA for A2. The firmware expands each
+32-sample sine-table duty value into repeated 20 kHz PWM carrier entries, then
+loops those buffers in timer DMA. `wave-status` should report `dma=1`,
+`targets=A`, nonzero `entries`, and nonzero `repeat`. This intentionally does
+not drive B/G yet because the local SDK has not shown a PWMX DMA feeder for
+those channels. The full USB/BLE bring-up image keeps the first DMA buffer
+small enough to fit CH592 RAM, so start with a 400 us slot. At the current 20 kHz
+carrier this uses 8 repeats per sample and 256 DMA entries total.
+
+B/G DMA mapping result:
+
+```text
+TMR1/TMR2 expose DMA registers and WCH SDK APIs.
+PWMX channels PWM4/PWM5/PWM7/PWM9 do not expose DMA registers or SDK APIs on CH592.
+```
+
+So the current B/G mapping experiment is intentionally hybrid:
+
+```text
+motor wave-dma-hybrid 400 1000 AB sleep0
+motor wave-status
+motor wave-stop
+```
+
+Expected status:
+
+```text
+running=1 targets=AB sleep=0 ... dma=1 dma_supported=A dma_error=0
+```
+
+This means A1/A2 are fed by TMR2/TMR1 DMA, while B1/B2 and G1/G2 are still
+updated by the sample scheduler because their PWMX block has no documented DMA
+feeder. B/G-only targets are rejected by `wave-dma-hybrid`; use `wave-clkdiv`
+for B/G-only scheduler tests.
+
+Current hardware-timed scope capture examples:
+
+```powershell
+python Firmware\tools\scope\motor_bridge_pwm_capture.py --port COM19 --mode wave-clkdiv --sine-target AB --channel-map ab-physical --fast-clkdiv 1024 --amplitude-permille 1000 --duration-ms 1000 --acquire-mode run-stop --scope-horizontal-offset-div 0 --scope-acquire-mode sample --scope-memory-depth 5000 --pair-overlay --no-waveform --pwm-debug --verbose-shell
+python Firmware\tools\scope\motor_bridge_pwm_capture.py --port COM19 --mode wave-clkdiv --sine-target AB --channel-map ab-physical --fast-clkdiv 256 --amplitude-permille 1000 --duration-ms 1000 --acquire-mode run-stop --scope-horizontal-offset-div 0 --scope-acquire-mode sample --scope-memory-depth 5000 --pair-overlay --no-waveform --pwm-debug --verbose-shell
+python Firmware\tools\scope\motor_bridge_pwm_capture.py --port COM19 --mode wave-clkdiv --sine-target AB --channel-map ab-physical --display-channels 3 --fast-clkdiv 1024 --amplitude-permille 1000 --duration-ms 300 --stop-during-active-s 0.005 --timebase 20e-6 --acquire-mode run-stop --scope-horizontal-offset-div 0 --scope-acquire-mode sample --scope-memory-depth 5000 --no-waveform --pwm-debug --verbose-shell
+python Firmware\tools\scope\motor_bridge_pwm_capture.py --port COM19 --mode wave-dma-a --channel-map ab-physical --display-channels 2,4 --fast-clkdiv 400 --amplitude-permille 1000 --duration-ms 1000 --wave-sleep sleep0 --acquire-mode run-stop --scope-horizontal-offset-div 0 --scope-acquire-mode sample --scope-memory-depth 5000 --pair-overlay --no-waveform --pwm-debug --verbose-shell
+python Firmware\tools\scope\motor_bridge_pwm_capture.py --port COM19 --mode wave-dma-hybrid --sine-target AB --channel-map ab-physical --fast-clkdiv 400 --amplitude-permille 1000 --duration-ms 1000 --wave-sleep sleep0 --acquire-mode run-stop --scope-horizontal-offset-div 0 --scope-acquire-mode sample --scope-memory-depth 5000 --pair-overlay --no-waveform --pwm-debug --verbose-shell
+```
+
+2026-06-05 first DMA test results:
+
+- `motor wave-dma-a 400 1000 sleep0` passed with `rc=0`, `dma=1`,
+  `entries=256`, and `repeat=8`.
+- Overview screenshot:
+  `Firmware/docs/motor_pwm_scope_evidence/20260605_151945_wave-dma-a_ab_physical_AB.png`.
+- A1 carrier zoom screenshot:
+  `Firmware/docs/motor_pwm_scope_evidence/20260605_152104_wave-dma-a_ab_physical_AB.png`.
+- `motor wave-dma-a 800 1000 sleep0` rejected cleanly with `rc=-3`,
+  `dma_error=3`, and `running=0`; this is expected with the RAM-safe 256-entry
+  DMA buffers.
+- `motor wave-dma-hybrid 400 1000 AB sleep0` passed with `rc=0`, `targets=AB`,
+  `dma=1`, `dma_supported=A`, and `dma_error=0`. A1/A2 were DMA-driven while
+  B1/B2 were scheduler-updated PWMX.
+- `motor wave-dma-hybrid 400 1000 all sleep0` passed with `rc=0`,
+  `targets=ABG`, `dma=1`, `dma_supported=A`, and `dma_error=0`. `pwm-debug`
+  showed nonzero PWMX data on B/G channels during the run, proving the hybrid
+  scheduler path exercises B and G while A remains DMA-driven.
+
+The older `motor_sine_clkdiv_sweep.ps1` workflow below is for the software
+scope-visualization commands, not for the hardware-timed `wave-clkdiv` engine.
+To run that full divider progression as separate screenshots:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File Firmware\tools\scope\motor_sine_clkdiv_sweep.ps1 -Port COM19 -Dividers "1024,512,256,128,64,32,16,8,4,2,1"

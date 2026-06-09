@@ -20,9 +20,32 @@ FW_WEAK int rgb_ws2812_platform_write(const rgb_color_t *colors, uint8_t count, 
     return 0;
 }
 
+FW_WEAK void rgb_ws2812_platform_idle_low(void)
+{
+}
+
+FW_WEAK const char *rgb_ws2812_platform_backend_name(void)
+{
+    return "stub";
+}
+
+FW_WEAK int rgb_ws2812_platform_diag_pa14_level(uint8_t high, uint32_t duration_ms)
+{
+    (void)high;
+    (void)duration_ms;
+    return -1;
+}
+
+FW_WEAK int rgb_ws2812_platform_diag_pa14_square(uint32_t hz, uint32_t duration_ms)
+{
+    (void)hz;
+    (void)duration_ms;
+    return -1;
+}
+
 void rgb_ws2812_init(void)
 {
-    board_output_write(BOARD_OUTPUT_RGB_DATA, 0);
+    rgb_ws2812_platform_idle_low();
     rgb_ws2812_clear();
 }
 
@@ -56,16 +79,31 @@ void rgb_ws2812_clear(void)
 void rgb_ws2812_show(void)
 {
     (void)rgb_ws2812_platform_write(pixels, APP_RGB_LED_COUNT, brightness);
-    board_output_write(BOARD_OUTPUT_RGB_DATA, 0);
+    rgb_ws2812_platform_idle_low();
 }
 
 void rgb_ws2812_force_idle_low(void)
 {
-    board_output_write(BOARD_OUTPUT_RGB_DATA, 0);
+    rgb_ws2812_platform_idle_low();
+}
+
+const char *rgb_ws2812_backend_name(void)
+{
+    return rgb_ws2812_platform_backend_name();
 }
 
 rgb_color_t rgb_ws2812_get(uint8_t index)
 {
     rgb_color_t empty = {0, 0, 0};
     return index < APP_RGB_LED_COUNT ? pixels[index] : empty;
+}
+
+int rgb_ws2812_diag_pa14_level(uint8_t high, uint32_t duration_ms)
+{
+    return rgb_ws2812_platform_diag_pa14_level(high, duration_ms);
+}
+
+int rgb_ws2812_diag_pa14_square(uint32_t hz, uint32_t duration_ms)
+{
+    return rgb_ws2812_platform_diag_pa14_square(hz, duration_ms);
 }

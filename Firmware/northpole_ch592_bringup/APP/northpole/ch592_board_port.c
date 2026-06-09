@@ -48,7 +48,15 @@
 #define CH592_GPIOB_MOTOR_SLEEP_SAFE_MASK 0u
 #endif
 
-#define CH592_GPIOA_RGB_MASK (GPIO_Pin_15)
+#define CH592_GPIOA_RGB_PA15_MASK (GPIO_Pin_15)
+#define CH592_GPIOA_RGB_PA14_MASK (GPIO_Pin_14)
+#define CH592_GPIOA_RGB_SPI0_MOSI_MASK CH592_GPIOA_RGB_PA14_MASK
+
+#if APP_RGB_WS2812_USE_SPI0_MOSI_PA14 || APP_RGB_WS2812_USE_PA14_BITBANG
+#define CH592_GPIOA_RGB_MASK CH592_GPIOA_RGB_PA14_MASK
+#else
+#define CH592_GPIOA_RGB_MASK CH592_GPIOA_RGB_PA15_MASK
+#endif
 
 #if APP_TARGET_SAFE_ENABLE_RGB_DATA
 #define CH592_GPIOA_RGB_SAFE_MASK CH592_GPIOA_RGB_MASK
@@ -63,6 +71,10 @@
 
 #define MOTOR_PWMX_CHANNELS (CH_PWM4 | CH_PWM5 | CH_PWM7 | CH_PWM9)
 #define MOTOR_PWMX_CLOCK_DIV 4u
+#define MOTOR_WAVE_TARGET_A NORTHPOLE_MOTOR_WAVE_TARGET_A
+#define MOTOR_WAVE_TARGET_B NORTHPOLE_MOTOR_WAVE_TARGET_B
+#define MOTOR_WAVE_TARGET_G NORTHPOLE_MOTOR_WAVE_TARGET_G
+#define MOTOR_WAVE_DMA_MAX_ENTRIES 256u
 
 #if defined(FREQ_SYS) && (FREQ_SYS != APP_WS2812_BITBANG_ASSUMED_FREQ_SYS_HZ)
 #warning "WS2812 bit-bang timing assumes 60 MHz FREQ_SYS; validate timing or retune NOP counts before using RGB."
@@ -85,6 +97,31 @@ static uint32_t motor_pwm_hz = APP_MOTOR_PWM_DEFAULT_HZ;
 static uint32_t motor_timer_cycle_ticks;
 static uint16_t motor_pwmx_cycle_ticks;
 static uint8_t motor_pwm_platform_initialized;
+
+typedef struct {
+    volatile uint8_t running;
+    volatile uint8_t target_flags;
+    volatile uint8_t sleep_high;
+    volatile uint8_t dma_mode;
+    volatile uint8_t dma_error;
+    volatile uint8_t phase;
+    volatile int8_t direction;
+    volatile uint8_t guard_mode;
+    volatile uint16_t amplitude_permille;
+    volatile uint16_t guard_duty_permille;
+    volatile uint32_t electrical_hz_x1000;
+    volatile uint32_t sample_ticks;
+    volatile uint32_t tick_count;
+    volatile uint32_t dma_entries;
+    volatile uint32_t dma_repeat_per_sample;
+} motor_wave_runtime_t;
+
+static motor_wave_runtime_t motor_wave;
+
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+static __attribute__((aligned(4))) uint32_t motor_wave_dma_a1[MOTOR_WAVE_DMA_MAX_ENTRIES];
+static __attribute__((aligned(4))) uint32_t motor_wave_dma_a2[MOTOR_WAVE_DMA_MAX_ENTRIES];
+#endif
 
 static int lookup_hw_pin(const board_pin_t *pin, hw_pin_t *hw)
 {
@@ -512,9 +549,23 @@ static void motor_pwmx_disable(uint8_t channel)
 #endif
 }
 
+static void motor_wave_dma_disable(void)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    TMR1_DMACfg(DISABLE, 0, 0, Mode_Single);
+    TMR2_DMACfg(DISABLE, 0, 0, Mode_Single);
+    TMR1_ITCfg(DISABLE, TMR1_2_IT_DMA_END);
+    TMR2_ITCfg(DISABLE, TMR1_2_IT_DMA_END);
+    TMR1_ClearITFlag(TMR1_2_IT_DMA_END);
+    TMR2_ClearITFlag(TMR1_2_IT_DMA_END);
+#endif
+    motor_wave.dma_mode = 0u;
+}
+
 static void motor_timer1_disable_low(void)
 {
 #if APP_MOTOR_PWM_BACKEND_ENABLE
+    TMR1_DMACfg(DISABLE, 0, 0, Mode_Single);
     TMR1_PWMDisable();
     TMR1_Disable();
 #endif
@@ -526,6 +577,7 @@ static void motor_timer1_disable_low(void)
 static void motor_timer2_disable_low(void)
 {
 #if APP_MOTOR_PWM_BACKEND_ENABLE
+    TMR2_DMACfg(DISABLE, 0, 0, Mode_Single);
     TMR2_PWMDisable();
     TMR2_Disable();
 #endif
@@ -812,6 +864,664 @@ void northpole_motor_pwm_diag_apply(motor_driver_id_t driver,
 #endif
 }
 
+static int16_t motor_wave_sine_sample(uint8_t phase)
+{
+    static const int16_t sine_q15[32] = {
+        0, 6393, 12540, 18204, 23170, 27245, 30273, 32137,
+        32767, 32137, 30273, 27245, 23170, 18204, 12540, 6393,
+        0, -6393, -12540, -18204, -23170, -27245, -30273, -32137,
+        -32767, -32137, -30273, -27245, -23170, -18204, -12540, -6393,
+    };
+
+    return sine_q15[phase & 31u];
+}
+
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+static uint32_t motor_timer_duty_ticks(uint16_t duty_permille)
+{
+    uint32_t ticks = ((uint32_t)motor_timer_cycle_ticks * duty_permille) / 1000u;
+
+    if (duty_permille > 0u && ticks == 0u) {
+        ticks = 1u;
+    }
+    if (ticks > motor_timer_cycle_ticks) {
+        ticks = motor_timer_cycle_ticks;
+    }
+    return ticks;
+}
+
+static uint16_t motor_wave_duty_from_sample(int16_t sample, uint16_t amplitude_permille)
+{
+    uint32_t magnitude = sample < 0 ? (uint32_t)(-sample) : (uint32_t)sample;
+    uint32_t duty = (magnitude * amplitude_permille + 16383u) / 32767u;
+
+    if (duty > 1000u) {
+        duty = 1000u;
+    }
+    return (uint16_t)duty;
+}
+
+static void motor_wave_a_set_signed(int16_t sample, uint16_t amplitude_permille)
+{
+    uint16_t duty = motor_wave_duty_from_sample(sample, amplitude_permille);
+    uint32_t ticks = motor_timer_duty_ticks(duty);
+    uint32_t a1_ticks = 0u;
+    uint32_t a2_ticks = 0u;
+
+    if (duty != 0u) {
+        if (sample >= 0) {
+            a1_ticks = ticks; /* A1/TMR2 forward */
+        } else {
+            a2_ticks = ticks; /* A2/TMR1 reverse */
+        }
+    }
+
+    TMR2_PWMActDataWidth(a1_ticks);
+    TMR1_PWMActDataWidth(a2_ticks);
+    TMR2_PWMEnable();
+    TMR1_PWMEnable();
+    TMR2_Enable();
+    TMR1_Enable();
+}
+
+static void motor_wave_pwmx_set_pair(uint8_t in1_ch,
+                                     uint8_t in2_ch,
+                                     int16_t sample,
+                                     uint16_t amplitude_permille)
+{
+    uint16_t duty = motor_wave_duty_from_sample(sample, amplitude_permille);
+    uint16_t ticks = motor_pwm_duty_ticks(duty);
+    uint16_t in1_ticks = 0u;
+    uint16_t in2_ticks = 0u;
+
+    if (duty != 0u) {
+        if (sample >= 0) {
+            in1_ticks = ticks;
+        } else {
+            in2_ticks = ticks;
+        }
+    }
+
+    PWMX_16bit_ACTOUT(in1_ch, in1_ticks, High_Level, ENABLE);
+    PWMX_16bit_ACTOUT(in2_ch, in2_ticks, High_Level, ENABLE);
+}
+
+static uint8_t motor_wave_guard_mode_valid(uint8_t guard_mode)
+{
+    switch (guard_mode) {
+    case NORTHPOLE_MOTOR_GUARD_OFF:
+    case NORTHPOLE_MOTOR_GUARD_FORWARD:
+    case NORTHPOLE_MOTOR_GUARD_REVERSE:
+    case NORTHPOLE_MOTOR_GUARD_PHASE_A:
+    case NORTHPOLE_MOTOR_GUARD_PHASE_B:
+        return 1u;
+    default:
+        return 0u;
+    }
+}
+
+const char *northpole_motor_guard_mode_name(uint8_t guard_mode)
+{
+    switch (guard_mode) {
+    case NORTHPOLE_MOTOR_GUARD_OFF: return "off";
+    case NORTHPOLE_MOTOR_GUARD_FORWARD: return "forward";
+    case NORTHPOLE_MOTOR_GUARD_REVERSE: return "reverse";
+    case NORTHPOLE_MOTOR_GUARD_PHASE_A: return "phase-a";
+    case NORTHPOLE_MOTOR_GUARD_PHASE_B: return "phase-b";
+    default: return "?";
+    }
+}
+
+static void motor_wave_apply_phase(uint8_t phase)
+{
+    uint16_t amplitude = motor_wave.amplitude_permille;
+    uint16_t guard_duty = motor_wave.guard_duty_permille;
+    int16_t guard_sample = 0;
+
+    if (motor_wave.target_flags & 0x01u) {
+        if (!motor_wave.dma_mode) {
+            motor_wave_a_set_signed(motor_wave_sine_sample(phase), amplitude);
+        }
+    } else {
+        motor_wave_a_set_signed(0, 0u);
+    }
+
+    if (motor_wave.target_flags & 0x02u) {
+        motor_wave_pwmx_set_pair(CH_PWM9,
+                                 CH_PWM7,
+                                 motor_wave_sine_sample((uint8_t)(phase + 8u)),
+                                 amplitude);
+    } else {
+        motor_wave_pwmx_set_pair(CH_PWM9, CH_PWM7, 0, 0u);
+    }
+
+    if (motor_wave.target_flags & 0x04u) {
+        switch (motor_wave.guard_mode) {
+        case NORTHPOLE_MOTOR_GUARD_FORWARD:
+            guard_sample = 32767;
+            break;
+        case NORTHPOLE_MOTOR_GUARD_REVERSE:
+            guard_sample = -32767;
+            break;
+        case NORTHPOLE_MOTOR_GUARD_PHASE_A:
+            guard_sample = motor_wave_sine_sample(phase);
+            guard_duty = amplitude;
+            break;
+        case NORTHPOLE_MOTOR_GUARD_PHASE_B:
+            guard_sample = motor_wave_sine_sample((uint8_t)(phase + 8u));
+            guard_duty = amplitude;
+            break;
+        case NORTHPOLE_MOTOR_GUARD_OFF:
+        default:
+            guard_sample = 0;
+            guard_duty = 0u;
+            break;
+        }
+        motor_wave_pwmx_set_pair(CH_PWM5,
+                                 CH_PWM4,
+                                 guard_sample,
+                                 guard_duty);
+    } else {
+        motor_wave_pwmx_set_pair(CH_PWM5, CH_PWM4, 0, 0u);
+    }
+}
+
+static void motor_wave_configure_outputs(void)
+{
+    motor_timer_configure_globals();
+    motor_pwmx_configure_globals();
+
+    GPIOPinRemap(DISABLE, RB_PIN_TMR1);
+    GPIOPinRemap(DISABLE, RB_PIN_TMR2);
+    GPIOA_ModeCfg(bTMR1 | bTMR2, GPIO_ModeOut_PP_5mA);
+    GPIOB_ModeCfg(bPWM9 | bPWM7, GPIO_ModeOut_PP_5mA);
+    GPIOA_ModeCfg(bPWM5 | bPWM4, GPIO_ModeOut_PP_5mA);
+
+    TMR1_PWMActDataWidth(0);
+    TMR2_PWMActDataWidth(0);
+    TMR1_PWMEnable();
+    TMR2_PWMEnable();
+    TMR1_Enable();
+    TMR2_Enable();
+
+    PWMX_16bit_ACTOUT(MOTOR_PWMX_CHANNELS, 0, High_Level, ENABLE);
+}
+
+static void motor_wave_disable_scheduler(void)
+{
+    TMR3_ITCfg(DISABLE, TMR0_3_IT_CYC_END);
+    PFIC_DisableIRQ(TMR3_IRQn);
+    TMR3_ClearITFlag(TMR0_3_IT_CYC_END);
+    TMR3_Disable();
+}
+
+static uint8_t motor_dma_buffer_crosses_64k(const uint32_t *buffer, uint32_t entries)
+{
+    uintptr_t start = (uintptr_t)&buffer[0];
+    uintptr_t end = (uintptr_t)&buffer[entries];
+
+    return ((start ^ end) & 0xffff0000u) ? 1u : 0u;
+}
+
+static uint32_t motor_wave_dma_fill_a(uint16_t amplitude_permille, uint32_t repeat_per_sample)
+{
+    uint32_t index = 0u;
+
+    for (uint8_t phase = 0u; phase < 32u; ++phase) {
+        int16_t sample = motor_wave_sine_sample(phase);
+        uint16_t duty = motor_wave_duty_from_sample(sample, amplitude_permille);
+        uint32_t ticks = motor_timer_duty_ticks(duty);
+        uint32_t a1_ticks = 0u;
+        uint32_t a2_ticks = 0u;
+
+        if (duty != 0u) {
+            if (sample >= 0) {
+                a1_ticks = ticks;
+            } else {
+                a2_ticks = ticks;
+            }
+        }
+
+        for (uint32_t repeat = 0u; repeat < repeat_per_sample; ++repeat) {
+            motor_wave_dma_a1[index] = a1_ticks;
+            motor_wave_dma_a2[index] = a2_ticks;
+            ++index;
+        }
+    }
+
+    return index;
+}
+
+static int motor_wave_dma_a_start_ticks(uint32_t requested_sample_ticks,
+                                        uint16_t amplitude_permille,
+                                        uint8_t target_flags,
+                                        uint8_t sleep_high)
+{
+    uint32_t repeat_per_sample;
+    uint32_t entries;
+    uint64_t electrical_hz_x1000;
+
+    if ((target_flags & MOTOR_WAVE_TARGET_A) == 0u) {
+        motor_wave.dma_error = 5u;
+        return -5;
+    }
+    if (requested_sample_ticks == 0u) {
+        motor_wave.dma_error = 1u;
+        return -1;
+    }
+    if (amplitude_permille > 1000u) {
+        amplitude_permille = 1000u;
+    }
+    if (sleep_high && amplitude_permille > APP_MOTOR_PWM_MAX_DUTY_PERMILLE) {
+        motor_wave.dma_error = 2u;
+        return -2;
+    }
+
+    motor_timer_configure_globals();
+    repeat_per_sample = (requested_sample_ticks + (motor_timer_cycle_ticks / 2u)) / motor_timer_cycle_ticks;
+    if (repeat_per_sample == 0u) {
+        repeat_per_sample = 1u;
+    }
+    entries = repeat_per_sample * 32u;
+    if (entries > MOTOR_WAVE_DMA_MAX_ENTRIES) {
+        motor_wave.dma_error = 3u;
+        return -3;
+    }
+
+    entries = motor_wave_dma_fill_a(amplitude_permille, repeat_per_sample);
+    if (motor_dma_buffer_crosses_64k(motor_wave_dma_a1, entries) ||
+        motor_dma_buffer_crosses_64k(motor_wave_dma_a2, entries)) {
+        motor_wave.dma_error = 4u;
+        return -4;
+    }
+
+    motor_wave_disable_scheduler();
+    motor_wave_dma_disable();
+    motor_wave.running = 0u;
+    motor_wave.phase = 0u;
+    motor_wave.tick_count = 0u;
+    motor_wave.target_flags = target_flags;
+    motor_wave.sleep_high = sleep_high ? 1u : 0u;
+    motor_wave.direction = 1;
+    motor_wave.guard_mode = NORTHPOLE_MOTOR_GUARD_PHASE_A;
+    motor_wave.amplitude_permille = amplitude_permille;
+    motor_wave.guard_duty_permille = amplitude_permille;
+    motor_wave.sample_ticks = repeat_per_sample * motor_timer_cycle_ticks;
+    motor_wave.dma_entries = entries;
+    motor_wave.dma_repeat_per_sample = repeat_per_sample;
+    motor_wave.dma_error = 0u;
+    electrical_hz_x1000 = ((uint64_t)FREQ_SYS * 1000ULL) /
+                          ((uint64_t)motor_wave.sample_ticks * 32ULL);
+    motor_wave.electrical_hz_x1000 = (uint32_t)electrical_hz_x1000;
+
+    motor_pwmx_configure_globals();
+    GPIOB_ModeCfg(bPWM9 | bPWM7, GPIO_ModeOut_PP_5mA);
+    GPIOA_ModeCfg(bPWM5 | bPWM4, GPIO_ModeOut_PP_5mA);
+    PWMX_16bit_ACTOUT(MOTOR_PWMX_CHANNELS, 0, High_Level, ENABLE);
+
+    GPIOPinRemap(DISABLE, RB_PIN_TMR1);
+    GPIOPinRemap(DISABLE, RB_PIN_TMR2);
+    GPIOA_ModeCfg(bTMR1 | bTMR2, GPIO_ModeOut_PP_5mA);
+    TMR1_PWMCycleCfg(motor_timer_cycle_ticks);
+    TMR2_PWMCycleCfg(motor_timer_cycle_ticks);
+    TMR1_PWMInit(High_Level, PWM_Times_1);
+    TMR2_PWMInit(High_Level, PWM_Times_1);
+    TMR1_PWMActDataWidth(0u);
+    TMR2_PWMActDataWidth(0u);
+
+    TMR1_DMACfg(ENABLE,
+                (uint16_t)(uintptr_t)&motor_wave_dma_a2[0],
+                (uint16_t)(uintptr_t)&motor_wave_dma_a2[entries],
+                Mode_LOOP);
+    TMR2_DMACfg(ENABLE,
+                (uint32_t)(uintptr_t)&motor_wave_dma_a1[0],
+                (uint32_t)(uintptr_t)&motor_wave_dma_a1[entries],
+                Mode_LOOP);
+    TMR1_PWMEnable();
+    TMR2_PWMEnable();
+    TMR1_Enable();
+    TMR2_Enable();
+
+    northpole_diag_force_gpio_output(BOARD_OUTPUT_MOTOR_SLEEP, sleep_high ? 1u : 0u);
+    motor_wave.running = 1u;
+    motor_wave.dma_mode = 1u;
+
+    if (target_flags & (MOTOR_WAVE_TARGET_B | MOTOR_WAVE_TARGET_G)) {
+        motor_wave_apply_phase(0u);
+        R32_TMR3_CNT_END = motor_wave.sample_ticks;
+        R8_TMR3_CTRL_MOD = RB_TMR_ALL_CLEAR;
+        R8_TMR3_CTRL_MOD = RB_TMR_COUNT_EN;
+        TMR3_ClearITFlag(TMR0_3_IT_CYC_END);
+        TMR3_ITCfg(ENABLE, TMR0_3_IT_CYC_END);
+        PFIC_EnableIRQ(TMR3_IRQn);
+    }
+    return 0;
+}
+
+static int motor_wave_start_ticks(uint32_t sample_ticks,
+                                  uint32_t electrical_hz_x1000,
+                                  uint16_t amplitude_permille,
+                                  uint8_t target_flags,
+                                  uint8_t sleep_high,
+                                  int8_t direction,
+                                  uint8_t guard_mode,
+                                  uint16_t guard_duty_permille)
+{
+    if (target_flags == 0u || sample_ticks < 1200u || sample_ticks > 67108864UL) {
+        return -1;
+    }
+    if (amplitude_permille > 1000u) {
+        amplitude_permille = 1000u;
+    }
+    if (guard_duty_permille > 1000u) {
+        guard_duty_permille = 1000u;
+    }
+    if (!motor_wave_guard_mode_valid(guard_mode)) {
+        return -3;
+    }
+    if (sleep_high && amplitude_permille > APP_MOTOR_PWM_MAX_DUTY_PERMILLE) {
+        return -2;
+    }
+    if (sleep_high && guard_duty_permille > APP_MOTOR_PWM_MAX_DUTY_PERMILLE) {
+        return -2;
+    }
+
+    motor_wave_disable_scheduler();
+    motor_wave_dma_disable();
+    motor_wave.running = 0u;
+    motor_wave.phase = 0u;
+    motor_wave.tick_count = 0u;
+    motor_wave.target_flags = target_flags;
+    motor_wave.sleep_high = sleep_high ? 1u : 0u;
+    motor_wave.direction = direction < 0 ? -1 : 1;
+    motor_wave.guard_mode = guard_mode;
+    motor_wave.amplitude_permille = amplitude_permille;
+    motor_wave.guard_duty_permille = guard_duty_permille;
+    motor_wave.electrical_hz_x1000 = electrical_hz_x1000;
+    motor_wave.sample_ticks = sample_ticks;
+    motor_wave.dma_entries = 0u;
+    motor_wave.dma_repeat_per_sample = 0u;
+    motor_wave.dma_error = 0u;
+
+    motor_wave_configure_outputs();
+    northpole_diag_force_gpio_output(BOARD_OUTPUT_MOTOR_SLEEP, sleep_high ? 1u : 0u);
+    motor_wave_apply_phase(0u);
+
+    motor_wave.running = 1u;
+    R32_TMR3_CNT_END = sample_ticks;
+    R8_TMR3_CTRL_MOD = RB_TMR_ALL_CLEAR;
+    R8_TMR3_CTRL_MOD = RB_TMR_COUNT_EN;
+    TMR3_ClearITFlag(TMR0_3_IT_CYC_END);
+    TMR3_ITCfg(ENABLE, TMR0_3_IT_CYC_END);
+    PFIC_EnableIRQ(TMR3_IRQn);
+    return 0;
+}
+#endif
+
+#if !APP_MOTOR_PWM_BACKEND_ENABLE
+const char *northpole_motor_guard_mode_name(uint8_t guard_mode)
+{
+    switch (guard_mode) {
+    case NORTHPOLE_MOTOR_GUARD_OFF: return "off";
+    case NORTHPOLE_MOTOR_GUARD_FORWARD: return "forward";
+    case NORTHPOLE_MOTOR_GUARD_REVERSE: return "reverse";
+    case NORTHPOLE_MOTOR_GUARD_PHASE_A: return "phase-a";
+    case NORTHPOLE_MOTOR_GUARD_PHASE_B: return "phase-b";
+    default: return "?";
+    }
+}
+#endif
+
+int northpole_motor_wave_start(uint32_t electrical_hz_x1000,
+                               uint16_t amplitude_permille,
+                               uint8_t target_flags,
+                               uint8_t sleep_high)
+{
+    return northpole_motor_wave_start_ex(electrical_hz_x1000,
+                                         amplitude_permille,
+                                         target_flags,
+                                         sleep_high,
+                                         1,
+                                         NORTHPOLE_MOTOR_GUARD_PHASE_A,
+                                         amplitude_permille);
+}
+
+int northpole_motor_wave_start_ex(uint32_t electrical_hz_x1000,
+                                  uint16_t amplitude_permille,
+                                  uint8_t target_flags,
+                                  uint8_t sleep_high,
+                                  int8_t direction,
+                                  uint8_t guard_mode,
+                                  uint16_t guard_duty_permille)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    uint64_t denominator;
+    uint64_t ticks;
+
+    if (electrical_hz_x1000 == 0u) {
+        return -1;
+    }
+
+    denominator = (uint64_t)electrical_hz_x1000 * 32ULL;
+    ticks = ((uint64_t)FREQ_SYS * 1000ULL + (denominator / 2ULL)) / denominator;
+    if (ticks > 0xffffffffULL) {
+        return -1;
+    }
+    return motor_wave_start_ticks((uint32_t)ticks,
+                                  electrical_hz_x1000,
+                                  amplitude_permille,
+                                  target_flags,
+                                  sleep_high,
+                                  direction,
+                                  guard_mode,
+                                  guard_duty_permille);
+#else
+    (void)electrical_hz_x1000;
+    (void)amplitude_permille;
+    (void)target_flags;
+    (void)sleep_high;
+    (void)direction;
+    (void)guard_mode;
+    (void)guard_duty_permille;
+    return -10;
+#endif
+}
+
+int northpole_motor_wave_start_slot_us(uint32_t slot_us,
+                                       uint16_t amplitude_permille,
+                                       uint8_t target_flags,
+                                       uint8_t sleep_high)
+{
+    return northpole_motor_wave_start_slot_us_ex(slot_us,
+                                                amplitude_permille,
+                                                target_flags,
+                                                sleep_high,
+                                                1,
+                                                NORTHPOLE_MOTOR_GUARD_PHASE_A,
+                                                amplitude_permille);
+}
+
+int northpole_motor_wave_start_slot_us_ex(uint32_t slot_us,
+                                          uint16_t amplitude_permille,
+                                          uint8_t target_flags,
+                                          uint8_t sleep_high,
+                                          int8_t direction,
+                                          uint8_t guard_mode,
+                                          uint16_t guard_duty_permille)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    uint64_t ticks;
+    uint32_t electrical_hz_x1000;
+
+    if (slot_us == 0u) {
+        return -1;
+    }
+
+    ticks = ((uint64_t)FREQ_SYS * (uint64_t)slot_us + 500000ULL) / 1000000ULL;
+    if (ticks > 0xffffffffULL) {
+        return -1;
+    }
+    electrical_hz_x1000 = (uint32_t)(1000000000ULL / ((uint64_t)slot_us * 32ULL));
+    return motor_wave_start_ticks((uint32_t)ticks,
+                                  electrical_hz_x1000,
+                                  amplitude_permille,
+                                  target_flags,
+                                  sleep_high,
+                                  direction,
+                                  guard_mode,
+                                  guard_duty_permille);
+#else
+    (void)slot_us;
+    (void)amplitude_permille;
+    (void)target_flags;
+    (void)sleep_high;
+    (void)direction;
+    (void)guard_mode;
+    (void)guard_duty_permille;
+    return -10;
+#endif
+}
+
+int northpole_motor_wave_dma_a_start_slot_us(uint32_t slot_us,
+                                             uint16_t amplitude_permille,
+                                             uint8_t sleep_high)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    uint64_t ticks;
+
+    if (slot_us == 0u) {
+        return -1;
+    }
+
+    ticks = ((uint64_t)FREQ_SYS * (uint64_t)slot_us + 500000ULL) / 1000000ULL;
+    if (ticks > 0xffffffffULL) {
+        return -1;
+    }
+    return motor_wave_dma_a_start_ticks((uint32_t)ticks,
+                                        amplitude_permille,
+                                        MOTOR_WAVE_TARGET_A,
+                                        sleep_high);
+#else
+    (void)slot_us;
+    (void)amplitude_permille;
+    (void)sleep_high;
+    return -10;
+#endif
+}
+
+int northpole_motor_wave_dma_hybrid_start_slot_us(uint32_t slot_us,
+                                                  uint16_t amplitude_permille,
+                                                  uint8_t target_flags,
+                                                  uint8_t sleep_high)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    uint64_t ticks;
+
+    if (slot_us == 0u) {
+        return -1;
+    }
+    if ((target_flags & MOTOR_WAVE_TARGET_A) == 0u) {
+        return -5;
+    }
+
+    ticks = ((uint64_t)FREQ_SYS * (uint64_t)slot_us + 500000ULL) / 1000000ULL;
+    if (ticks > 0xffffffffULL) {
+        return -1;
+    }
+    return motor_wave_dma_a_start_ticks((uint32_t)ticks,
+                                        amplitude_permille,
+                                        target_flags,
+                                        sleep_high);
+#else
+    (void)slot_us;
+    (void)amplitude_permille;
+    (void)target_flags;
+    (void)sleep_high;
+    return -10;
+#endif
+}
+
+void northpole_motor_wave_stop(void)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    motor_wave_disable_scheduler();
+    motor_wave_dma_disable();
+    motor_wave.running = 0u;
+    motor_wave.target_flags = 0u;
+    motor_wave.sleep_high = 0u;
+    motor_wave.phase = 0u;
+    motor_wave.direction = 1;
+    motor_wave.guard_mode = NORTHPOLE_MOTOR_GUARD_OFF;
+    motor_wave.guard_duty_permille = 0u;
+    motor_wave.dma_entries = 0u;
+    motor_wave.dma_repeat_per_sample = 0u;
+
+    motor_pwm_a_apply(MOTOR_DRV_COAST, 0u);
+    motor_pwmx_pair_apply(CH_PWM9,
+                          (hw_pin_t){HW_PORT_B, bPWM9},
+                          CH_PWM7,
+                          (hw_pin_t){HW_PORT_B, bPWM7},
+                          MOTOR_DRV_COAST,
+                          0u);
+    motor_pwmx_pair_apply(CH_PWM5,
+                          (hw_pin_t){HW_PORT_A, bPWM5},
+                          CH_PWM4,
+                          (hw_pin_t){HW_PORT_A, bPWM4},
+                          MOTOR_DRV_COAST,
+                          0u);
+#else
+    motor_driver_static_apply(MOTOR_DRV_A, MOTOR_DRV_COAST, 0u);
+    motor_driver_static_apply(MOTOR_DRV_B, MOTOR_DRV_COAST, 0u);
+    motor_driver_static_apply(MOTOR_DRV_G, MOTOR_DRV_COAST, 0u);
+#endif
+    northpole_diag_force_gpio_output(BOARD_OUTPUT_MOTOR_SLEEP, 0u);
+}
+
+void northpole_motor_wave_status(northpole_motor_wave_status_t *status)
+{
+    if (status == NULL) {
+        return;
+    }
+
+    status->running = motor_wave.running;
+    status->target_flags = motor_wave.target_flags;
+    status->sleep_high = motor_wave.sleep_high;
+    status->dma_mode = motor_wave.dma_mode;
+    status->dma_supported_flags = MOTOR_WAVE_TARGET_A;
+    status->dma_error = motor_wave.dma_error;
+    status->phase = motor_wave.phase;
+    status->direction = motor_wave.direction;
+    status->guard_mode = motor_wave.guard_mode;
+    status->amplitude_permille = motor_wave.amplitude_permille;
+    status->guard_duty_permille = motor_wave.guard_duty_permille;
+    status->carrier_hz = motor_pwm_hz;
+    status->electrical_hz_x1000 = motor_wave.electrical_hz_x1000;
+    status->sample_ticks = motor_wave.sample_ticks;
+    status->tick_count = motor_wave.tick_count;
+    status->dma_entries = motor_wave.dma_entries;
+    status->dma_repeat_per_sample = motor_wave.dma_repeat_per_sample;
+}
+
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+__INTERRUPT
+__HIGH_CODE
+void TMR3_IRQHandler(void)
+{
+    if (TMR3_GetITFlag(TMR0_3_IT_CYC_END)) {
+        TMR3_ClearITFlag(TMR0_3_IT_CYC_END);
+        if (motor_wave.running) {
+            motor_wave_apply_phase(motor_wave.phase);
+            if (motor_wave.direction < 0) {
+                motor_wave.phase = (uint8_t)((motor_wave.phase + 31u) & 31u);
+            } else {
+                motor_wave.phase = (uint8_t)((motor_wave.phase + 1u) & 31u);
+            }
+            motor_wave.tick_count++;
+        }
+    }
+}
+#endif
+
 void northpole_ch592_motor_pwm_debug(uint8_t *initialized,
                                      uint32_t *pwm_hz,
                                      uint32_t *timer_cycle_ticks,
@@ -890,9 +1600,228 @@ static void ws2812_send_color(rgb_color_t color, uint8_t brightness)
 #endif
 }
 
+#if APP_RGB_WS2812_USE_SPI0_MOSI_PA14
+static uint8_t ws2812_spi0_mosi_active;
+
+static uint8_t ws2812_spi0_clock_div_for_hz(uint32_t hz)
+{
+    uint32_t div;
+
+    if (hz == 0u) {
+        hz = APP_WS2812_SPI0_MOSI_HZ;
+    }
+    div = (FREQ_SYS + (hz / 2u)) / hz;
+    if (div < 2u) {
+        div = 2u;
+    }
+    if (div > 255u) {
+        div = 255u;
+    }
+    return (uint8_t)div;
+}
+
+static void ws2812_spi0_prepare_mosi_only(void)
+{
+    uint8_t div = ws2812_spi0_clock_div_for_hz(APP_WS2812_SPI0_MOSI_HZ);
+
+    if (!ws2812_spi0_mosi_active) {
+        SPI0_Disable();
+        R8_SPI0_CTRL_MOD = RB_SPI_ALL_CLEAR;
+        R8_SPI0_CTRL_MOD = 0;
+
+        GPIOPinRemap(DISABLE, RB_PIN_SPI0);
+        GPIOA_ResetBits(CH592_GPIOA_RGB_SPI0_MOSI_MASK);
+        GPIOA_ModeCfg(CH592_GPIOA_RGB_SPI0_MOSI_MASK, GPIO_ModeOut_PP_5mA);
+    }
+
+    R8_SPI0_CLOCK_DIV = div;
+    R8_SPI0_CTRL_CFG = (uint8_t)((R8_SPI0_CTRL_CFG | RB_SPI_AUTO_IF) &
+        (uint8_t)~(RB_SPI_DMA_ENABLE | RB_SPI_DMA_LOOP | RB_SPI_BIT_ORDER | RB_SPI_MST_DLY_EN));
+    if (div == 2u) {
+        R8_SPI0_CTRL_CFG |= RB_SPI_MST_DLY_EN;
+    }
+
+    if (!ws2812_spi0_mosi_active) {
+        R8_SPI0_CTRL_MOD = RB_SPI_ALL_CLEAR;
+        R8_SPI0_CTRL_MOD = RB_SPI_MOSI_OE;
+        ws2812_spi0_mosi_active = 1u;
+    }
+}
+
+static int ws2812_spi0_send_byte(uint8_t value)
+{
+    uint32_t guard = 1000000u;
+
+    R8_SPI0_CTRL_MOD &= (uint8_t)~RB_SPI_FIFO_DIR;
+    R8_SPI0_BUFFER = value;
+    while ((R8_SPI0_INT_FLAG & RB_SPI_FREE) == 0u) {
+        if (--guard == 0u) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int ws2812_spi0_send_reset_low(void)
+{
+    uint32_t bytes = APP_WS2812_SPI0_RESET_LOW_BYTES;
+
+    if (bytes == 0u) {
+        bytes = 1u;
+    }
+
+    for (uint32_t i = 0; i < bytes; ++i) {
+        if (ws2812_spi0_send_byte(0x00u) != 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int ws2812_spi0_send_ws2812_byte_4bit(uint8_t value)
+{
+    for (int shift = 6; shift >= 0; shift -= 2) {
+        uint8_t hi_mask = (uint8_t)(1u << (shift + 1));
+        uint8_t lo_mask = (uint8_t)(1u << shift);
+        uint8_t hi_code = (value & hi_mask) ? 0x0eu : 0x08u; /* 1=1110, 0=1000 */
+        uint8_t lo_code = (value & lo_mask) ? 0x0eu : 0x08u;
+        if (ws2812_spi0_send_byte((uint8_t)((hi_code << 4) | lo_code)) != 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int ws2812_spi0_send_color(rgb_color_t color, uint8_t brightness)
+{
+    uint8_t r = ws2812_scale(color.r, brightness);
+    uint8_t g = ws2812_scale(color.g, brightness);
+    uint8_t b = ws2812_scale(color.b, brightness);
+
+#if APP_RGB_COLOR_ORDER == APP_RGB_COLOR_ORDER_RGB
+    if (ws2812_spi0_send_ws2812_byte_4bit(r) != 0) { return -1; }
+    if (ws2812_spi0_send_ws2812_byte_4bit(g) != 0) { return -1; }
+    if (ws2812_spi0_send_ws2812_byte_4bit(b) != 0) { return -1; }
+#elif APP_RGB_COLOR_ORDER == APP_RGB_COLOR_ORDER_BRG
+    if (ws2812_spi0_send_ws2812_byte_4bit(b) != 0) { return -1; }
+    if (ws2812_spi0_send_ws2812_byte_4bit(r) != 0) { return -1; }
+    if (ws2812_spi0_send_ws2812_byte_4bit(g) != 0) { return -1; }
+#else
+    if (ws2812_spi0_send_ws2812_byte_4bit(g) != 0) { return -1; }
+    if (ws2812_spi0_send_ws2812_byte_4bit(r) != 0) { return -1; }
+    if (ws2812_spi0_send_ws2812_byte_4bit(b) != 0) { return -1; }
+#endif
+    return 0;
+}
+
+static void ws2812_spi0_release_to_gpio_low(void)
+{
+    SPI0_Disable();
+    R8_SPI0_CTRL_MOD = RB_SPI_ALL_CLEAR;
+    R8_SPI0_CTRL_MOD = 0;
+    R8_SPI0_CTRL_CFG &= (uint8_t)~(RB_SPI_DMA_ENABLE | RB_SPI_DMA_LOOP);
+    GPIOPinRemap(DISABLE, RB_PIN_SPI0);
+    GPIOA_ResetBits(CH592_GPIOA_RGB_SPI0_MOSI_MASK);
+    GPIOA_ModeCfg(CH592_GPIOA_RGB_SPI0_MOSI_MASK, GPIO_ModeOut_PP_5mA);
+    ws2812_spi0_mosi_active = 0u;
+}
+#endif
+
+void rgb_ws2812_platform_idle_low(void)
+{
+#if APP_RGB_WS2812_USE_SPI0_MOSI_PA14
+    ws2812_spi0_prepare_mosi_only();
+    (void)ws2812_spi0_send_reset_low();
+#else
+    GPIOA_ResetBits(CH592_GPIOA_RGB_MASK);
+    GPIOA_ModeCfg(CH592_GPIOA_RGB_MASK, GPIO_ModeOut_PP_5mA);
+#endif
+}
+
+const char *rgb_ws2812_platform_backend_name(void)
+{
+#if APP_RGB_WS2812_USE_SPI0_MOSI_PA14
+    return "spi0-mosi-pa14";
+#elif APP_RGB_WS2812_USE_PA14_BITBANG
+    return "bitbang-pa14";
+#else
+    return "bitbang-pa15";
+#endif
+}
+
+static void rgb_ws2812_pa14_gpio_mode(void)
+{
+#if APP_RGB_WS2812_USE_SPI0_MOSI_PA14
+    ws2812_spi0_release_to_gpio_low();
+#else
+    SPI0_Disable();
+    R8_SPI0_CTRL_MOD = RB_SPI_ALL_CLEAR;
+    R8_SPI0_CTRL_MOD = 0;
+    R8_SPI0_CTRL_CFG &= (uint8_t)~(RB_SPI_DMA_ENABLE | RB_SPI_DMA_LOOP);
+    GPIOPinRemap(DISABLE, RB_PIN_SPI0);
+    GPIOA_ResetBits(CH592_GPIOA_RGB_SPI0_MOSI_MASK);
+    GPIOA_ModeCfg(CH592_GPIOA_RGB_SPI0_MOSI_MASK, GPIO_ModeOut_PP_5mA);
+#endif
+}
+
+int rgb_ws2812_platform_diag_pa14_level(uint8_t high, uint32_t duration_ms)
+{
+#if APP_RGB_WS2812_USE_SPI0_MOSI_PA14 || APP_RGB_WS2812_USE_PA14_BITBANG
+    rgb_ws2812_pa14_gpio_mode();
+    if (high) {
+        GPIOA_SetBits(CH592_GPIOA_RGB_SPI0_MOSI_MASK);
+    } else {
+        GPIOA_ResetBits(CH592_GPIOA_RGB_SPI0_MOSI_MASK);
+    }
+    if (duration_ms > 0u) {
+        timebase_delay_ms(duration_ms);
+    }
+    return 0;
+#else
+    (void)high;
+    (void)duration_ms;
+    return -10;
+#endif
+}
+
+int rgb_ws2812_platform_diag_pa14_square(uint32_t hz, uint32_t duration_ms)
+{
+#if APP_RGB_WS2812_USE_SPI0_MOSI_PA14 || APP_RGB_WS2812_USE_PA14_BITBANG
+    uint32_t half_period_us;
+    uint32_t toggles;
+
+    if (hz == 0u || duration_ms == 0u) {
+        return -1;
+    }
+    half_period_us = 500000u / hz;
+    if (half_period_us == 0u) {
+        half_period_us = 1u;
+    }
+    toggles = ((duration_ms * 1000u) + half_period_us - 1u) / half_period_us;
+
+    rgb_ws2812_pa14_gpio_mode();
+    for (uint32_t i = 0; i < toggles; ++i) {
+        if (i & 1u) {
+            GPIOA_ResetBits(CH592_GPIOA_RGB_SPI0_MOSI_MASK);
+        } else {
+            GPIOA_SetBits(CH592_GPIOA_RGB_SPI0_MOSI_MASK);
+        }
+        timebase_delay_us(half_period_us);
+    }
+    GPIOA_ResetBits(CH592_GPIOA_RGB_SPI0_MOSI_MASK);
+    return 0;
+#else
+    (void)hz;
+    (void)duration_ms;
+    return -10;
+#endif
+}
+
 int rgb_ws2812_platform_write(const rgb_color_t *colors, uint8_t count, uint8_t global_brightness)
 {
+#if !APP_RGB_WS2812_USE_SPI0_MOSI_PA14
     uint32_t irq_status = 0;
+#endif
 
     /* Fixed NOP timing is calibrated for 60 MHz FREQ_SYS and is still
      * hardware-validation pending. The XL-1010RGBC-WS2812B datasheet
@@ -909,6 +1838,22 @@ int rgb_ws2812_platform_write(const rgb_color_t *colors, uint8_t count, uint8_t 
         global_brightness = APP_RGB_BRINGUP_BRIGHTNESS_LIMIT;
     }
 
+#if APP_RGB_WS2812_USE_SPI0_MOSI_PA14
+    ws2812_spi0_prepare_mosi_only();
+    if (ws2812_spi0_send_reset_low() != 0) {
+        return -2;
+    }
+    for (uint8_t i = 0; i < count; ++i) {
+        if (ws2812_spi0_send_color(colors[i], global_brightness) != 0) {
+            rgb_ws2812_platform_idle_low();
+            return -2;
+        }
+    }
+    if (ws2812_spi0_send_reset_low() != 0) {
+        return -3;
+    }
+    return 0;
+#else
     GPIOA_ResetBits(CH592_GPIOA_RGB_MASK);
     GPIOA_ModeCfg(CH592_GPIOA_RGB_MASK, GPIO_ModeOut_PP_5mA);
     mDelayuS(APP_WS2812_RESET_US);
@@ -922,6 +1867,7 @@ int rgb_ws2812_platform_write(const rgb_color_t *colors, uint8_t count, uint8_t 
 
     mDelayuS(APP_WS2812_RESET_US);
     return 0;
+#endif
 }
 
 static int ch592_i2c_timeout_ms(uint32_t timeout_ms)

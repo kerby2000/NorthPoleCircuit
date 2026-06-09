@@ -85,3 +85,24 @@ NorthPoleCircuit3.zip
 # Datasheets and reference materials; publish final versions as GitHub Release assets 
 PCB/datasheets/*.pdf
 Firmware/mounriver_ch592_led_probe/.mrs/b648d4b2ea6bf3a3247857f125bfa670-.snapshot
+
+# Local oscilloscope captures
+Firmware/docs/ip5209_scope_evidence/*.csv
+Firmware/docs/ip5209_scope_evidence/*.png
+Firmware/docs/ip5209_scope_evidence/*.jpg
+Firmware/docs/ip5209_scope_evidence/*.bmp
+Firmware/docs/ip5209_scope_evidence/*.json
+!Firmware/docs/ip5209_scope_evidence/README.md
+Firmware/docs/motor_pwm_scope_evidence/*.csv
+Firmware/docs/motor_pwm_scope_evidence/*.png
+Firmware/docs/motor_pwm_scope_evidence/*.jpg
+Firmware/docs/motor_pwm_scope_evidence/*.bmp
+Firmware/docs/motor_pwm_scope_evidence/*.json
+Firmware/docs/motor_pwm_scope_evidence/*.md
+!Firmware/docs/motor_pwm_scope_evidence/README.md
+Firmware/docs/spi0_mosi_pinmux_evidence/*.csv
+Firmware/docs/spi0_mosi_pinmux_evidence/*.png
+Firmware/docs/spi0_mosi_pinmux_evidence/*.jpg
+Firmware/docs/spi0_mosi_pinmux_evidence/*.bmp
+Firmware/docs/spi0_mosi_pinmux_evidence/*.json
+!Firmware/docs/spi0_mosi_pinmux_evidence/README.md

@@ -94,7 +94,7 @@ Important hardware notes:
 
 - J3 is WCH-LinkE/debug: 1=3.3V target reference, 2=TIO/SWDIO/PB14, 4=TCK/SWDCK/PB15, 5=GND, 3/6=NC.
 - PB14/PB15 are shared with IP5209 I2C through R15/R14 0 ohm links. Do not expect IP5209 I2C access during active WCH-LinkE debugging.
-- J4 is WT2003 USB update only: 1=+5V, 2=D+, 4=D-, 5=GND, 3/6=NC. It is not ARM SWD.
+- J4 is intended as WT2003 USB update only, not ARM SWD, but the current PCB revision is blocked for update use: pin 1 is unconnected, so J4 has D+/D-/GND only. Do not use it for WT2003 USB update until +5 V is routed or a rework power path is documented.
 - PB0 controls global DRV8837 `~SLEEP`; idle/fault state is `/SLEEP` low and all bridge IN pins low.
 
 The existing `Code/` directory is from the original upstream NorthPoleCircuit project and is not firmware for the CH592X BLE/audio redesign.

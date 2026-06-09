@@ -9,10 +9,15 @@
 #include "hall.h"
 #include "i2c_bus.h"
 #include "log.h"
+#include "motion_control.h"
 #include "motor_drv8837.h"
+#include "northpole_ch592_port.h"
 #include "power_ip5209.h"
 #include "rgb_ws2812.h"
 #include "settings.h"
+#if APP_SPI0_MOSI_PINMUX_TEST
+#include "spi0_mosi_pinmux_test.h"
+#endif
 #include "timebase.h"
 #include "touch.h"
 
@@ -51,6 +56,7 @@ static int cmd_pins(int argc, char **argv);
 static int cmd_safe(int argc, char **argv);
 static int cmd_audio(int argc, char **argv);
 static int cmd_motor(int argc, char **argv);
+static int cmd_motion(int argc, char **argv);
 static int cmd_rgb(int argc, char **argv);
 static int cmd_hall(int argc, char **argv);
 static int cmd_touch(int argc, char **argv);
@@ -98,12 +104,16 @@ static const shell_command_t builtin_commands[] = {
     {"pins", "pins verify", cmd_pins},
     {"safe", "safe check", cmd_safe},
     {"audio", "audio status|raw <hex...>|version|qvol|qstatus|qcount-ext|qperiph|busy|volume <0-31>|play-index <id>|play-name <name>|stop|pause|next|prev|mode <single|single-loop|all-loop|random>|output <spk|dac>|sleep <idle|deep>|format-ext-flash CONFIRM", cmd_audio},
-    {"motor", "motor status|arm <seconds>|off|pwm-debug|pwm <A|B|G> <forward|reverse|coast|brake> <duty_permille> <ms>|sine-demo <speed_hz> <amplitude_permille> <ms> [AB|A|B|G|all]|sine-phase <phase_0_31> <amplitude_permille> <ms> [AB|A|B|G|all]|sine-diag-inputs <speed_hz> <ms> [AB|A|B|G|all]|sine-pwm-inputs <speed_hz> <amplitude_permille> <ms> [AB|A|B|G|all]|sine-scope-plot <speed_hz> <amplitude_permille> <ms> [AB|A|B|G|all]|sine-scope-plot-us <slot_us> <amplitude_permille> <steps> [AB|A|B|G|all]|sine-scope-run-us <slot_us> <amplitude_permille> <ms> [AB|A|B|G|all]|sine-scope-clkdiv <fast_clkdiv> <amplitude_permille> <ms> [AB|A|B|G|all]|diag-inputs <A|B|G> <forward|reverse|coast|brake> <ms>", cmd_motor},
-    {"rgb", "rgb off|idle-low|one <idx> <r> <g> <b>|all <r> <g> <b>|chase <brightness>|order test|show", cmd_rgb},
+    {"motor", "motor status|arm <seconds>|off|pwm-debug|wave-status|wave-stop|wave-start/wave-clkdiv/wave-run ... [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]|pwm <A|B|G> <forward|reverse|coast|brake> <duty_permille> <ms>|sine-* diagnostics|diag-inputs <A|B|G> <forward|reverse|coast|brake> <ms>", cmd_motor},
+    {"motion", "motion status|start|stop|speed <signed_hz_x1000>|step <signed_delta_hz_x1000>|guard <off|forward|reverse|phase-a|phase-b> [duty_permille]", cmd_motion},
+    {"rgb", "rgb backend|brightness <0-255>|diag-pa14 <high|low|square>|off|idle-low|one <idx> <r> <g> <b>|all <r> <g> <b>|chase <brightness>|order test|show", cmd_rgb},
     {"hall", "hall read", cmd_hall},
     {"touch", "touch raw", cmd_touch},
     {"i2c", "i2c lines|release-debug|scan|read <addr7> <reg>|write <addr7> <reg> <value>", cmd_i2c},
     {"ip5209", "ip5209 status|dump|probe|read <reg>|write <reg> <value>|boost <on|off>|light-load <enable|disable>|ntc <enable|disable>", cmd_ip5209},
+#if APP_SPI0_MOSI_PINMUX_TEST
+    {"spi0test", "spi0test status|gpio-baseline|all-safe|speed <hz>|mosi-square <hz> <seconds>|init-mosi-only|init-default-spi|send-pattern <00|ff|aa|55> <repeat>|send-ws2812-zeros <frames>|send-ws2812-ones <frames>|send-ws2812-pattern <00|ff|aa|55> <frames>|pwm-pa12 <duty_permille> <seconds>|hall-pa13-read <seconds>", spi0_mosi_pinmux_test_command},
+#endif
     {"settings", "settings show|reset|save|corrupt", cmd_settings},
     {"reset", "force safe outputs and software reset MCU", cmd_reset},
 };
@@ -1150,6 +1160,101 @@ static uint8_t sine_demo_target_flags(const char *target)
     return 0u;
 }
 
+static int parse_motor_wave_sleep(const char *arg, uint8_t *sleep_high)
+{
+    if (arg == NULL) {
+        *sleep_high = 0u;
+        return 0;
+    }
+    if (strcmp(arg, "sleep0") == 0 || strcmp(arg, "safe") == 0 || strcmp(arg, "off") == 0) {
+        *sleep_high = 0u;
+        return 0;
+    }
+    if (strcmp(arg, "sleep1") == 0 || strcmp(arg, "awake") == 0 || strcmp(arg, "on") == 0) {
+        *sleep_high = 1u;
+        return 0;
+    }
+    return -1;
+}
+
+static int parse_motor_guard_mode(const char *arg, uint8_t *guard_mode)
+{
+    if (arg == NULL) {
+        return -1;
+    }
+    if (strcmp(arg, "guard-off") == 0 || strcmp(arg, "off") == 0) {
+        *guard_mode = NORTHPOLE_MOTOR_GUARD_OFF;
+        return 0;
+    }
+    if (strcmp(arg, "guard-fwd") == 0 || strcmp(arg, "guard-forward") == 0 ||
+        strcmp(arg, "guard-in") == 0 || strcmp(arg, "forward") == 0) {
+        *guard_mode = NORTHPOLE_MOTOR_GUARD_FORWARD;
+        return 0;
+    }
+    if (strcmp(arg, "guard-rev") == 0 || strcmp(arg, "guard-reverse") == 0 ||
+        strcmp(arg, "reverse") == 0) {
+        *guard_mode = NORTHPOLE_MOTOR_GUARD_REVERSE;
+        return 0;
+    }
+    if (strcmp(arg, "guard-a") == 0 || strcmp(arg, "phase-a") == 0) {
+        *guard_mode = NORTHPOLE_MOTOR_GUARD_PHASE_A;
+        return 0;
+    }
+    if (strcmp(arg, "guard-b") == 0 || strcmp(arg, "phase-b") == 0) {
+        *guard_mode = NORTHPOLE_MOTOR_GUARD_PHASE_B;
+        return 0;
+    }
+    return -1;
+}
+
+static int parse_motor_wave_options(int argc,
+                                    char **argv,
+                                    int start_index,
+                                    uint8_t target_flags,
+                                    uint16_t amplitude,
+                                    uint8_t *sleep_high,
+                                    int8_t *direction,
+                                    uint8_t *guard_mode,
+                                    uint16_t *guard_duty)
+{
+    *sleep_high = 0u;
+    *direction = 1;
+    *guard_mode = (target_flags & NORTHPOLE_MOTOR_WAVE_TARGET_G) ?
+        NORTHPOLE_MOTOR_GUARD_FORWARD :
+        NORTHPOLE_MOTOR_GUARD_OFF;
+    *guard_duty = amplitude;
+
+    for (int i = start_index; i < argc; ++i) {
+        uint8_t parsed_sleep;
+        uint8_t parsed_guard;
+
+        if (parse_motor_wave_sleep(argv[i], &parsed_sleep) == 0) {
+            *sleep_high = parsed_sleep;
+            continue;
+        }
+        if (strcmp(argv[i], "fwd") == 0 || strcmp(argv[i], "forward") == 0 ||
+            strcmp(argv[i], "dir+") == 0) {
+            *direction = 1;
+            continue;
+        }
+        if (strcmp(argv[i], "rev") == 0 || strcmp(argv[i], "reverse") == 0 ||
+            strcmp(argv[i], "dir-") == 0) {
+            *direction = -1;
+            continue;
+        }
+        if (parse_motor_guard_mode(argv[i], &parsed_guard) == 0) {
+            *guard_mode = parsed_guard;
+            continue;
+        }
+        if (strcmp(argv[i], "guard-duty") == 0 && i + 1 < argc) {
+            *guard_duty = (uint16_t)strtoul(argv[++i], NULL, 0);
+            continue;
+        }
+        return -1;
+    }
+    return 0;
+}
+
 static int run_motor_sine_demo(uint32_t speed_hz,
                                uint16_t amplitude_permille,
                                uint32_t duration_ms,
@@ -1720,18 +1825,142 @@ static void print_motor_pwm_debug(void)
 #endif
 }
 
+static void print_motor_wave_status(void)
+{
+    northpole_motor_wave_status_t status;
+
+    memset(&status, 0, sizeof(status));
+    northpole_motor_wave_status(&status);
+    LOG_INFO("motor wave running=%u targets=%s%s%s sleep=%u direction=%d guard=%s guard_duty=%u carrier_hz=%lu electrical_hz_x1000=%lu amplitude=%u sample_ticks=%lu phase=%u ticks=%lu backend=%u dma=%u dma_supported=%s%s%s dma_error=%u entries=%lu repeat=%lu\r\n",
+             (unsigned)status.running,
+             (status.target_flags & 0x01u) ? "A" : "",
+             (status.target_flags & 0x02u) ? "B" : "",
+             (status.target_flags & 0x04u) ? "G" : "",
+             (unsigned)status.sleep_high,
+             (int)status.direction,
+             northpole_motor_guard_mode_name(status.guard_mode),
+             (unsigned)status.guard_duty_permille,
+             (unsigned long)status.carrier_hz,
+             (unsigned long)status.electrical_hz_x1000,
+             (unsigned)status.amplitude_permille,
+             (unsigned long)status.sample_ticks,
+             (unsigned)status.phase,
+             (unsigned long)status.tick_count,
+             (unsigned)APP_MOTOR_PWM_BACKEND_ENABLE,
+             (unsigned)status.dma_mode,
+             (status.dma_supported_flags & 0x01u) ? "A" : "",
+             (status.dma_supported_flags & 0x02u) ? "B" : "",
+             (status.dma_supported_flags & 0x04u) ? "G" : "",
+             (unsigned)status.dma_error,
+             (unsigned long)status.dma_entries,
+             (unsigned long)status.dma_repeat_per_sample);
+}
+
+static void print_motion_status(void)
+{
+    motion_control_status_t status;
+
+    memset(&status, 0, sizeof(status));
+    motion_control_status(&status);
+    LOG_INFO("motion enabled=%u running=%u speed_hz_x1000=%ld step=%ld max=%ld target=%s%s%s sleep=%u amplitude=%u guard=%s guard_duty=%u last_rc=%d\r\n",
+             (unsigned)status.enabled,
+             (unsigned)status.running,
+             (long)status.speed_hz_x1000,
+             (long)status.speed_step_hz_x1000,
+             (long)status.max_speed_hz_x1000,
+             (status.target_flags & NORTHPOLE_MOTOR_WAVE_TARGET_A) ? "A" : "",
+             (status.target_flags & NORTHPOLE_MOTOR_WAVE_TARGET_B) ? "B" : "",
+             (status.target_flags & NORTHPOLE_MOTOR_WAVE_TARGET_G) ? "G" : "",
+             (unsigned)status.sleep_high,
+             (unsigned)status.amplitude_permille,
+             northpole_motor_guard_mode_name(status.guard_mode),
+             (unsigned)status.guard_duty_permille,
+             status.last_start_rc);
+}
+
+static int cmd_motion(int argc, char **argv)
+{
+    int rc;
+
+    if (argc < 2 || strcmp(argv[1], "status") == 0) {
+        print_motion_status();
+        print_motor_wave_status();
+        return 0;
+    }
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
+    LOG_WARN("motion commands disabled in dev-board smoke build\r\n");
+    return -1;
+#endif
+#if !APP_TARGET_ENABLE_MOTOR || !APP_TARGET_ENABLE_TOUCH
+    LOG_WARN("motion commands disabled in this target ladder build\r\n");
+    return -1;
+#endif
+    if (strcmp(argv[1], "start") == 0 || strcmp(argv[1], "run") == 0) {
+        rc = motion_control_start();
+        print_motion_status();
+        print_motor_wave_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "stop") == 0 || strcmp(argv[1], "off") == 0) {
+        motion_control_stop();
+        print_motion_status();
+        print_motor_wave_status();
+        return 0;
+    }
+    if (strcmp(argv[1], "speed") == 0 && argc >= 3) {
+        rc = motion_control_set_speed((int32_t)strtol(argv[2], NULL, 0));
+        print_motion_status();
+        print_motor_wave_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "step") == 0 && argc >= 3) {
+        rc = motion_control_adjust_speed((int32_t)strtol(argv[2], NULL, 0));
+        print_motion_status();
+        print_motor_wave_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "guard") == 0 && argc >= 3) {
+        uint8_t guard_mode;
+        uint16_t duty = APP_MOTION_GUARD_DUTY_PERMILLE;
+
+        if (parse_motor_guard_mode(argv[2], &guard_mode) < 0) {
+            LOG_WARN("bad motion guard mode\r\n");
+            return -1;
+        }
+        if (argc >= 4) {
+            duty = (uint16_t)strtoul(argv[3], NULL, 0);
+        }
+        rc = motion_control_set_guard(guard_mode, duty);
+        print_motion_status();
+        print_motor_wave_status();
+        return rc;
+    }
+    LOG_WARN("bad motion command\r\n");
+    return -1;
+}
+
 static int cmd_motor(int argc, char **argv)
 {
     if (argc < 2) {
-        LOG_INFO("motor status|arm <seconds>|off|pwm-debug|pwm <A|B|G> <forward|reverse|coast|brake> <duty_permille> <ms>|sine-demo <speed_hz> <amplitude_permille> <ms> [AB|A|B|G|all]|sine-phase <phase_0_31> <amplitude_permille> <ms> [AB|A|B|G|all]|sine-diag-inputs <speed_hz> <ms> [AB|A|B|G|all]|sine-pwm-inputs <speed_hz> <amplitude_permille> <ms> [AB|A|B|G|all]|sine-scope-plot <speed_hz> <amplitude_permille> <ms> [AB|A|B|G|all]|sine-scope-plot-us <slot_us> <amplitude_permille> <steps> [AB|A|B|G|all]|sine-scope-run-us <slot_us> <amplitude_permille> <ms> [AB|A|B|G|all]|sine-scope-clkdiv <fast_clkdiv> <amplitude_permille> <ms> [AB|A|B|G|all]|diag-inputs <A|B|G> <forward|reverse|coast|brake> <ms>\r\n");
+        LOG_INFO("motor status|arm <seconds>|off|pwm-debug|wave-status|wave-stop\r\n");
+        LOG_INFO("motor wave-start <electrical_hz_x1000> <amplitude_permille> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]\r\n");
+        LOG_INFO("motor wave-clkdiv <slot_us> <amplitude_permille> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]\r\n");
+        LOG_INFO("motor wave-run <electrical_hz_x1000> <amplitude_permille> <ms> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]\r\n");
+        LOG_INFO("motor wave-dma-a <slot_us> <amplitude_permille> [sleep0|sleep1]|wave-dma-hybrid <slot_us> <amplitude_permille> [AB|A|all] [sleep0|sleep1]\r\n");
+        LOG_INFO("motor pwm <A|B|G> <forward|reverse|coast|brake> <duty_permille> <ms>|sine-* diagnostics|diag-inputs <A|B|G> <forward|reverse|coast|brake> <ms>\r\n");
         return 0;
     }
     if (strcmp(argv[1], "status") == 0) {
         print_motor_status();
+        print_motor_wave_status();
         return 0;
     }
     if (strcmp(argv[1], "pwm-debug") == 0) {
         print_motor_pwm_debug();
+        return 0;
+    }
+    if (strcmp(argv[1], "wave-status") == 0) {
+        print_motor_wave_status();
         return 0;
     }
 #if APP_DEV_BOARD_BRINGUP_APP_SMOKE
@@ -1754,9 +1983,182 @@ static int cmd_motor(int argc, char **argv)
         return 0;
     }
     if (strcmp(argv[1], "off") == 0) {
+        motion_control_stop();
+        northpole_motor_wave_stop();
         motor_drv8837_off();
         LOG_INFO("motor off sleep=%u\r\n", (unsigned)board_output_last_state(BOARD_OUTPUT_MOTOR_SLEEP));
         return 0;
+    }
+    if (strcmp(argv[1], "wave-stop") == 0) {
+        northpole_motor_wave_stop();
+        print_motor_wave_status();
+        return 0;
+    }
+    if (strcmp(argv[1], "wave-start") == 0 && argc >= 4) {
+        uint32_t electrical_hz_x1000 = (uint32_t)strtoul(argv[2], NULL, 0);
+        uint16_t amplitude = (uint16_t)strtoul(argv[3], NULL, 0);
+        uint8_t target_flags = sine_demo_target_flags(argc >= 5 ? argv[4] : NULL);
+        uint8_t sleep_high = 0u;
+        int8_t direction = 1;
+        uint8_t guard_mode = NORTHPOLE_MOTOR_GUARD_OFF;
+        uint16_t guard_duty = 0u;
+        int rc;
+
+        if (target_flags == 0u ||
+            parse_motor_wave_options(argc, argv, 5, target_flags, amplitude,
+                                     &sleep_high, &direction, &guard_mode, &guard_duty) < 0) {
+            LOG_WARN("bad motor wave-start command\r\n");
+            return -1;
+        }
+        rc = northpole_motor_wave_start_ex(electrical_hz_x1000,
+                                           amplitude,
+                                           target_flags,
+                                           sleep_high,
+                                           direction,
+                                           guard_mode,
+                                           guard_duty);
+        LOG_INFO("motor wave-start electrical_hz_x1000=%lu amplitude=%u targets=%s%s%s sleep=%u direction=%d guard=%s guard_duty=%u rc=%d\r\n",
+                 (unsigned long)electrical_hz_x1000,
+                 (unsigned)amplitude,
+                 (target_flags & 0x01u) ? "A" : "",
+                 (target_flags & 0x02u) ? "B" : "",
+                 (target_flags & 0x04u) ? "G" : "",
+                 (unsigned)sleep_high,
+                 (int)direction,
+                 northpole_motor_guard_mode_name(guard_mode),
+                 (unsigned)guard_duty,
+                 rc);
+        print_motor_wave_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "wave-clkdiv") == 0 && argc >= 4) {
+        uint32_t slot_us = (uint32_t)strtoul(argv[2], NULL, 0);
+        uint16_t amplitude = (uint16_t)strtoul(argv[3], NULL, 0);
+        uint8_t target_flags = sine_demo_target_flags(argc >= 5 ? argv[4] : NULL);
+        uint8_t sleep_high = 0u;
+        int8_t direction = 1;
+        uint8_t guard_mode = NORTHPOLE_MOTOR_GUARD_OFF;
+        uint16_t guard_duty = 0u;
+        int rc;
+
+        if (target_flags == 0u ||
+            parse_motor_wave_options(argc, argv, 5, target_flags, amplitude,
+                                     &sleep_high, &direction, &guard_mode, &guard_duty) < 0) {
+            LOG_WARN("bad motor wave-clkdiv command\r\n");
+            return -1;
+        }
+        rc = northpole_motor_wave_start_slot_us_ex(slot_us,
+                                                  amplitude,
+                                                  target_flags,
+                                                  sleep_high,
+                                                  direction,
+                                                  guard_mode,
+                                                  guard_duty);
+        LOG_INFO("motor wave-clkdiv slot_us=%lu electrical_cycle_us=%lu amplitude=%u targets=%s%s%s sleep=%u direction=%d guard=%s guard_duty=%u rc=%d\r\n",
+                 (unsigned long)slot_us,
+                 (unsigned long)(slot_us * 32u),
+                 (unsigned)amplitude,
+                 (target_flags & 0x01u) ? "A" : "",
+                 (target_flags & 0x02u) ? "B" : "",
+                 (target_flags & 0x04u) ? "G" : "",
+                 (unsigned)sleep_high,
+                 (int)direction,
+                 northpole_motor_guard_mode_name(guard_mode),
+                 (unsigned)guard_duty,
+                 rc);
+        print_motor_wave_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "wave-dma-a") == 0 && argc >= 4) {
+        uint32_t slot_us = (uint32_t)strtoul(argv[2], NULL, 0);
+        uint16_t amplitude = (uint16_t)strtoul(argv[3], NULL, 0);
+        uint8_t sleep_high = 0u;
+        int rc;
+
+        if (parse_motor_wave_sleep(argc >= 5 ? argv[4] : NULL, &sleep_high) < 0) {
+            LOG_WARN("bad motor wave-dma-a command\r\n");
+            return -1;
+        }
+        rc = northpole_motor_wave_dma_a_start_slot_us(slot_us, amplitude, sleep_high);
+        LOG_INFO("motor wave-dma-a slot_us=%lu electrical_cycle_us=%lu amplitude=%u targets=A sleep=%u rc=%d\r\n",
+                 (unsigned long)slot_us,
+                 (unsigned long)(slot_us * 32u),
+                 (unsigned)amplitude,
+                 (unsigned)sleep_high,
+                 rc);
+        print_motor_wave_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "wave-dma-hybrid") == 0 && argc >= 4) {
+        uint32_t slot_us = (uint32_t)strtoul(argv[2], NULL, 0);
+        uint16_t amplitude = (uint16_t)strtoul(argv[3], NULL, 0);
+        uint8_t target_flags = sine_demo_target_flags(argc >= 5 ? argv[4] : NULL);
+        uint8_t sleep_high = 0u;
+        int rc;
+
+        if (target_flags == 0u || (target_flags & 0x01u) == 0u ||
+            parse_motor_wave_sleep(argc >= 6 ? argv[5] : NULL, &sleep_high) < 0) {
+            LOG_WARN("bad motor wave-dma-hybrid command; targets must include A because only TMR1/TMR2 have DMA on CH592\r\n");
+            return -1;
+        }
+        rc = northpole_motor_wave_dma_hybrid_start_slot_us(slot_us, amplitude, target_flags, sleep_high);
+        LOG_INFO("motor wave-dma-hybrid slot_us=%lu electrical_cycle_us=%lu amplitude=%u targets=%s%s%s sleep=%u rc=%d\r\n",
+                 (unsigned long)slot_us,
+                 (unsigned long)(slot_us * 32u),
+                 (unsigned)amplitude,
+                 (target_flags & 0x01u) ? "A" : "",
+                 (target_flags & 0x02u) ? "B" : "",
+                 (target_flags & 0x04u) ? "G" : "",
+                 (unsigned)sleep_high,
+                 rc);
+        print_motor_wave_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "wave-run") == 0 && argc >= 5) {
+        uint32_t electrical_hz_x1000 = (uint32_t)strtoul(argv[2], NULL, 0);
+        uint16_t amplitude = (uint16_t)strtoul(argv[3], NULL, 0);
+        uint32_t duration_ms = (uint32_t)strtoul(argv[4], NULL, 0);
+        uint8_t target_flags = sine_demo_target_flags(argc >= 6 ? argv[5] : NULL);
+        uint8_t sleep_high = 0u;
+        int8_t direction = 1;
+        uint8_t guard_mode = NORTHPOLE_MOTOR_GUARD_OFF;
+        uint16_t guard_duty = 0u;
+        int rc;
+
+        if (duration_ms > 60000UL) {
+            duration_ms = 60000UL;
+        }
+        if (target_flags == 0u ||
+            parse_motor_wave_options(argc, argv, 6, target_flags, amplitude,
+                                     &sleep_high, &direction, &guard_mode, &guard_duty) < 0) {
+            LOG_WARN("bad motor wave-run command\r\n");
+            return -1;
+        }
+        rc = northpole_motor_wave_start_ex(electrical_hz_x1000,
+                                           amplitude,
+                                           target_flags,
+                                           sleep_high,
+                                           direction,
+                                           guard_mode,
+                                           guard_duty);
+        LOG_INFO("motor wave-run electrical_hz_x1000=%lu amplitude=%u duration_ms=%lu targets=%s%s%s sleep=%u direction=%d guard=%s guard_duty=%u rc=%d\r\n",
+                 (unsigned long)electrical_hz_x1000,
+                 (unsigned)amplitude,
+                 (unsigned long)duration_ms,
+                 (target_flags & 0x01u) ? "A" : "",
+                 (target_flags & 0x02u) ? "B" : "",
+                 (target_flags & 0x04u) ? "G" : "",
+                 (unsigned)sleep_high,
+                 (int)direction,
+                 northpole_motor_guard_mode_name(guard_mode),
+                 (unsigned)guard_duty,
+                 rc);
+        if (rc == 0) {
+            timebase_delay_ms(duration_ms);
+            northpole_motor_wave_stop();
+        }
+        print_motor_wave_status();
+        return rc;
     }
     if (strcmp(argv[1], "diag-inputs") == 0 && argc >= 5) {
         motor_driver_id_t driver;
@@ -1938,7 +2340,7 @@ static int cmd_rgb(int argc, char **argv)
     static uint8_t chase_index;
 
     if (argc < 2) {
-        LOG_INFO("rgb off|idle-low|one <idx> <r> <g> <b>|all <r> <g> <b>|chase <brightness>|order test|show\r\n");
+        LOG_INFO("rgb backend|brightness <0-255>|diag-pa14 <high [ms]|low [ms]|square <hz> <ms>>|off|idle-low|one <idx> <r> <g> <b>|all <r> <g> <b>|chase <brightness>|order test|show\r\n");
         return 0;
     }
 #if APP_DEV_BOARD_BRINGUP_APP_SMOKE
@@ -1949,6 +2351,67 @@ static int cmd_rgb(int argc, char **argv)
     LOG_WARN("rgb commands disabled in this target ladder build\r\n");
     return -1;
 #endif
+    if (strcmp(argv[1], "backend") == 0) {
+        LOG_INFO("rgb backend=%s brightness=%u limit=%u leds=%u\r\n",
+                 rgb_ws2812_backend_name(),
+                 (unsigned)rgb_ws2812_get_brightness(),
+                 (unsigned)APP_RGB_BRINGUP_BRIGHTNESS_LIMIT,
+                 (unsigned)APP_RGB_LED_COUNT);
+        return 0;
+    }
+    if (strcmp(argv[1], "brightness") == 0 && argc >= 3) {
+        rgb_ws2812_set_brightness((uint8_t)strtoul(argv[2], NULL, 0));
+        LOG_INFO("rgb brightness=%u limit=%u\r\n",
+                 (unsigned)rgb_ws2812_get_brightness(),
+                 (unsigned)APP_RGB_BRINGUP_BRIGHTNESS_LIMIT);
+        return 0;
+    }
+    if (strcmp(argv[1], "diag-pa14") == 0 && argc >= 3) {
+        uint32_t duration_ms = 0;
+        int rc;
+
+        if (strcmp(argv[2], "high") == 0) {
+            duration_ms = argc >= 4 ? (uint32_t)strtoul(argv[3], NULL, 0) : 5000u;
+            if (duration_ms > 30000u) {
+                duration_ms = 30000u;
+            }
+            LOG_INFO("rgb diag-pa14 high start ms=%lu\r\n", (unsigned long)duration_ms);
+            rc = rgb_ws2812_diag_pa14_level(1u, duration_ms);
+            LOG_INFO("rgb diag-pa14 high done ms=%lu rc=%d\r\n", (unsigned long)duration_ms, rc);
+            return rc;
+        }
+        if (strcmp(argv[2], "low") == 0) {
+            duration_ms = argc >= 4 ? (uint32_t)strtoul(argv[3], NULL, 0) : 0u;
+            if (duration_ms > 30000u) {
+                duration_ms = 30000u;
+            }
+            LOG_INFO("rgb diag-pa14 low start ms=%lu\r\n", (unsigned long)duration_ms);
+            rc = rgb_ws2812_diag_pa14_level(0u, duration_ms);
+            LOG_INFO("rgb diag-pa14 low done ms=%lu rc=%d\r\n", (unsigned long)duration_ms, rc);
+            return rc;
+        }
+        if (strcmp(argv[2], "square") == 0 && argc >= 5) {
+            uint32_t hz = (uint32_t)strtoul(argv[3], NULL, 0);
+            duration_ms = (uint32_t)strtoul(argv[4], NULL, 0);
+            if (hz > 100000u) {
+                hz = 100000u;
+            }
+            if (duration_ms > 30000u) {
+                duration_ms = 30000u;
+            }
+            LOG_INFO("rgb diag-pa14 square start hz=%lu ms=%lu\r\n",
+                     (unsigned long)hz,
+                     (unsigned long)duration_ms);
+            rc = rgb_ws2812_diag_pa14_square(hz, duration_ms);
+            LOG_INFO("rgb diag-pa14 square done hz=%lu ms=%lu rc=%d\r\n",
+                     (unsigned long)hz,
+                     (unsigned long)duration_ms,
+                     rc);
+            return rc;
+        }
+        LOG_INFO("rgb diag-pa14 high [ms]|low [ms]|square <hz> <ms>\r\n");
+        return -1;
+    }
     if (strcmp(argv[1], "off") == 0) {
         rgb_ws2812_clear();
         LOG_INFO("rgb off frame sent\r\n");

@@ -21,6 +21,18 @@ from scope_driver_adapter import ChannelConfig, OwonScopeAdapter, ScopeAdapterEr
 
 DEFAULT_OUT_DIR = Path("Firmware/docs/motor_pwm_scope_evidence")
 MOTOR_RC_RE = re.compile(r"motor\s+(?P<driver>[ABG])\s+mode=(?P<mode>\S+)\s+duty=(?P<duty>\d+).*rc=(?P<rc>-?\d+)")
+SINE_LIKE_MODES = (
+    "sine-demo",
+    "sine-phase",
+    "sine-diag-inputs",
+    "sine-pwm-inputs",
+    "sine-scope-plot",
+    "sine-scope-plot-us",
+    "sine-scope-run-us",
+    "sine-scope-clkdiv",
+)
+WAVE_MODES = ("wave-clkdiv", "wave-dma-a", "wave-dma-hybrid")
+WAVEFORM_SEQUENCE_MODES = SINE_LIKE_MODES + WAVE_MODES
 
 # DOS1104/HANMATEK accepted horizontal scales are discrete.  The
 # InstrumentKit driver rejects intermediate values such as 6.4 ms/div, so
@@ -98,6 +110,7 @@ def shell_response_has_command_error(response: str) -> bool:
         "bad motor sine",
         "bad motor pwm",
         "bad motor diag",
+        "bad motor wave",
         "unknown command",
     )
     return any(marker in normalized for marker in error_markers)
@@ -217,7 +230,7 @@ def command_for_sine_scope_plot_us(args) -> str:
 
 
 def effective_slot_us(args) -> int:
-    if args.mode == "sine-scope-clkdiv":
+    if args.mode in ("sine-scope-clkdiv", "wave-clkdiv", "wave-dma-a", "wave-dma-hybrid"):
         return max(1, int(args.fast_clkdiv))
     return max(1, int(args.slot_us))
 
@@ -230,7 +243,25 @@ def command_for_sine_scope_clkdiv(args) -> str:
     return f"motor sine-scope-clkdiv {args.fast_clkdiv} {args.amplitude_permille} {args.duration_ms} {args.sine_target}"
 
 
+def command_for_wave_clkdiv(args) -> str:
+    return f"motor wave-clkdiv {effective_slot_us(args)} {args.amplitude_permille} {args.sine_target} {args.wave_sleep}"
+
+
+def command_for_wave_dma_a(args) -> str:
+    return f"motor wave-dma-a {effective_slot_us(args)} {args.amplitude_permille} {args.wave_sleep}"
+
+
+def command_for_wave_dma_hybrid(args) -> str:
+    return f"motor wave-dma-hybrid {effective_slot_us(args)} {args.amplitude_permille} {args.sine_target} {args.wave_sleep}"
+
+
 def command_for_sine_like_mode(args) -> str:
+    if args.mode == "wave-dma-hybrid":
+        return command_for_wave_dma_hybrid(args)
+    if args.mode == "wave-dma-a":
+        return command_for_wave_dma_a(args)
+    if args.mode == "wave-clkdiv":
+        return command_for_wave_clkdiv(args)
     if args.mode == "sine-demo":
         return command_for_sine_demo(args)
     if args.mode == "sine-phase":
@@ -251,7 +282,7 @@ def command_for_sine_like_mode(args) -> str:
 def active_duration_s_for_args(args) -> float:
     if args.mode == "sine-scope-plot-us":
         return (args.slot_us * args.steps) / 1_000_000.0
-    if args.mode in ("sine-scope-run-us", "sine-scope-clkdiv"):
+    if args.mode in ("sine-scope-run-us", "sine-scope-clkdiv", "wave-clkdiv", "wave-dma-a", "wave-dma-hybrid"):
         return args.duration_ms / 1000.0
     if args.mode in ("sine-demo", "sine-phase", "sine-diag-inputs", "sine-pwm-inputs", "sine-scope-plot"):
         return args.duration_ms / 1000.0
@@ -323,7 +354,7 @@ def channel_labels(args) -> list[tuple[int, str]]:
 def default_sine_phase_trigger_channel(args) -> int | None:
     if args.mode in ("sine-scope-plot", "sine-scope-plot-us") and args.sine_target in ("AB", "all"):
         return 3 if args.channel_map in ("ab-physical", "ab-reference") else None
-    if args.mode in ("sine-scope-run-us", "sine-scope-clkdiv") and args.sine_target in ("AB", "all"):
+    if args.mode in ("sine-scope-run-us", "sine-scope-clkdiv", "wave-clkdiv", "wave-dma-hybrid") and args.sine_target in ("AB", "all"):
         return 3 if args.channel_map in ("ab-physical", "ab-reference") else None
     if args.mode != "sine-phase" or args.sine_target not in ("AB", "all"):
         return None
@@ -349,16 +380,16 @@ def run_motor_sequence(ser, args) -> list[str]:
 
     responses: list[str] = []
     responses.append(send_shell_command(ser, "motor status", args.command_timeout, args.verbose_shell))
-    if args.mode in ("sine-demo", "sine-phase", "sine-diag-inputs", "sine-pwm-inputs", "sine-scope-plot", "sine-scope-plot-us", "sine-scope-run-us", "sine-scope-clkdiv"):
+    if args.mode in WAVEFORM_SEQUENCE_MODES:
         command = command_for_sine_like_mode(args)
         command_response = send_shell_command(ser, command, args.command_timeout, args.verbose_shell)
-        if shell_response_has_command_error(command_response):
-            scope.stop()
         raise_on_shell_command_error(command, command_response)
         responses.append(command_response)
         active_s = active_duration_s_for_args(args)
         time.sleep(active_s + args.post_command_wait)
         responses.append(read_response(ser, timeout_s=args.command_timeout))
+        if args.mode in WAVE_MODES:
+            responses.append(send_shell_command(ser, "motor wave-stop", args.command_timeout, args.verbose_shell))
         return responses
 
     if args.mode.startswith("diag-"):
@@ -412,7 +443,7 @@ def run_motor_sequence_run_stop(ser, args, scope: OwonScopeAdapter) -> list[str]
     responses: list[str] = []
     responses.append(send_shell_command(ser, "motor status", args.command_timeout, args.verbose_shell))
 
-    if args.mode in ("sine-demo", "sine-phase", "sine-diag-inputs", "sine-pwm-inputs", "sine-scope-plot", "sine-scope-plot-us", "sine-scope-run-us", "sine-scope-clkdiv"):
+    if args.mode in WAVEFORM_SEQUENCE_MODES:
         command = command_for_sine_like_mode(args)
         command_response = send_shell_command(ser, command, args.command_timeout, args.verbose_shell)
         raise_on_shell_command_error(command, command_response)
@@ -425,7 +456,8 @@ def run_motor_sequence_run_stop(ser, args, scope: OwonScopeAdapter) -> list[str]
         responses.append(read_response(ser, timeout_s=args.command_timeout))
         if args.pwm_debug:
             responses.append(send_shell_command(ser, "motor pwm-debug", args.command_timeout, args.verbose_shell))
-        responses.append(send_shell_command(ser, "motor off", args.command_timeout, args.verbose_shell))
+        stop_command = "motor wave-stop" if args.mode in WAVE_MODES else "motor off"
+        responses.append(send_shell_command(ser, stop_command, args.command_timeout, args.verbose_shell))
         return responses
 
     if args.mode.startswith("diag-"):
@@ -639,6 +671,25 @@ def write_summary(path: Path, *, args, scope_id: str, settings: dict, screenshot
             "software-GPIO stress tests, so measured timing should be treated as",
             "scope evidence rather than a production timing guarantee.",
         ])
+    if args.mode in WAVE_MODES:
+        lines.extend([
+            "",
+            "## Diagnostic Interpretation",
+            "",
+            "`wave-clkdiv` exercises the ISR-updated hardware-timed motor engine.",
+            "`wave-dma-a` exercises the first DMA/offload experiment: A1/A2 only,",
+            "fed by TMR2/TMR1 timer DMA while B/G remain off. `wave-dma-hybrid`",
+            "keeps A1/A2 on TMR2/TMR1 DMA and updates B/G from the lower-rate",
+            "phase scheduler because CH592 PWMX has no DMA registers. In all",
+            "wave modes the carrier is the production-style PWM carrier;",
+            "`fast_clkdiv` maps to one requested sine-table slot in microseconds,",
+            "so one electrical cycle is `32 * fast_clkdiv` before hardware",
+            "quantization.",
+            "",
+            "This capture intentionally keeps DRV8837 `/SLEEP` at the requested",
+            "`wave_sleep` state. For bring-up captures we use `sleep0`, so bridge",
+            "outputs remain disabled while the input PWM timing is proven.",
+        ])
     lines.extend(["", "## Waveform Summary", ""])
     lines.append("| Channel | Label | Samples | Min V | Max V | Mean V | Vpp | Rising edges | Est. Hz | Est. duty |")
     lines.append("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|")
@@ -724,6 +775,9 @@ def parse_args() -> argparse.Namespace:
             "sine-scope-plot-us",
             "sine-scope-run-us",
             "sine-scope-clkdiv",
+            "wave-clkdiv",
+            "wave-dma-a",
+            "wave-dma-hybrid",
             "diag-forward",
             "diag-reverse",
             "diag-brake",
@@ -753,8 +807,22 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1024,
         help=(
-            "Divider-style alias for sine-scope-clkdiv. In this diagnostic it maps "
+            "Divider-style alias for sine-scope-clkdiv, wave-clkdiv, wave-dma-a, and wave-dma-hybrid. It maps "
             "directly to slot_us so 1024,512,...,1 compress the same 32-slot shape."
+        ),
+    )
+    parser.add_argument(
+        "--wave-sleep",
+        choices=["sleep0", "sleep1"],
+        default="sleep0",
+        help="DRV8837 sleep state for wave-* modes. Use sleep0 for scope-only input validation.",
+    )
+    parser.add_argument(
+        "--allow-wave-starvation-risk",
+        action="store_true",
+        help=(
+            "Allow wave-clkdiv values below 128 us. 64 us/slot starved the "
+            "USB shell on 2026-06-05 and may require manual reset/power cycle."
         ),
     )
     parser.add_argument("--phase", type=int, default=8, help="Sine-phase table index, 0..31")
@@ -901,10 +969,17 @@ def main() -> int:
         return 2
     if args.sine_target is None:
         args.sine_target = "AB" if args.driver == "B" else args.driver
-    if args.mode in ("sine-demo", "sine-phase", "sine-diag-inputs", "sine-pwm-inputs", "sine-scope-plot", "sine-scope-plot-us", "sine-scope-run-us", "sine-scope-clkdiv") and args.sine_target not in ("AB", "all"):
+    if args.mode in WAVEFORM_SEQUENCE_MODES and args.sine_target not in ("AB", "all"):
         args.driver = args.sine_target
     if args.phase < 0 or args.phase > 31:
         print("--phase must be 0..31", file=sys.stderr)
+        return 2
+    if args.mode in ("wave-clkdiv", "wave-dma-hybrid") and effective_slot_us(args) < 128 and not args.allow_wave_starvation_risk:
+        print(
+            "--fast-clkdiv/slot below 128 us can starve the USB shell in ISR-updated wave modes; "
+            "use --allow-wave-starvation-risk only for intentional stress captures.",
+            file=sys.stderr,
+        )
         return 2
     if args.trigger_channel is None:
         args.trigger_channel = default_sine_phase_trigger_channel(args)
@@ -920,7 +995,7 @@ def main() -> int:
             args.timebase = 100e-3
         elif args.mode in ("sine-demo", "sine-diag-inputs", "sine-pwm-inputs", "sine-scope-plot"):
             args.timebase = 100e-3
-        elif args.mode in ("sine-scope-plot-us", "sine-scope-run-us", "sine-scope-clkdiv"):
+        elif args.mode in ("sine-scope-plot-us", "sine-scope-run-us", "sine-scope-clkdiv", "wave-clkdiv", "wave-dma-a", "wave-dma-hybrid"):
             slot_us = effective_slot_us(args)
             visible_slots = max(1, min(args.steps if args.mode == "sine-scope-plot-us" else 32, 32))
             visible_cycle_s = (visible_slots * slot_us) / 1_000_000.0
@@ -936,14 +1011,14 @@ def main() -> int:
         args.stop_during_active_s = 0.6
     if args.mode == "sine-scope-plot-us" and args.stop_during_active_s == 0.08:
         args.stop_during_active_s = min(0.6, max(0.02, (args.slot_us * args.steps) / 2_000_000.0))
-    if args.mode in ("sine-scope-run-us", "sine-scope-clkdiv") and args.stop_during_active_s == 0.08:
+    if args.mode in ("sine-scope-run-us", "sine-scope-clkdiv", "wave-clkdiv", "wave-dma-a", "wave-dma-hybrid") and args.stop_during_active_s == 0.08:
         visible_cycle_s = (32 * effective_slot_us(args)) / 1_000_000.0
         active_s = active_duration_s_for_args(args)
         args.stop_during_active_s = min(max(0.03, visible_cycle_s * 1.5), max(0.03, active_s * 0.5), 1.0)
     if args.mode == "sine-phase" and args.stop_during_active_s == 0.08:
         args.stop_during_active_s = 0.12
     if args.pair_overlay is None:
-        args.pair_overlay = args.channel_map != "driver" and args.mode in ("sine-scope-plot", "sine-scope-plot-us", "sine-scope-run-us", "sine-scope-clkdiv")
+        args.pair_overlay = args.channel_map != "driver" and args.mode in ("sine-scope-plot", "sine-scope-plot-us", "sine-scope-run-us", "sine-scope-clkdiv", "wave-clkdiv", "wave-dma-a", "wave-dma-hybrid")
     if args.channel_map != "driver":
         if args.pair_overlay:
             if args.channel_map == "ab-physical":
@@ -978,7 +1053,7 @@ def main() -> int:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d_%H%M%S")
-    stem_target = args.sine_target if args.mode in ("sine-demo", "sine-phase", "sine-diag-inputs", "sine-pwm-inputs", "sine-scope-plot", "sine-scope-plot-us", "sine-scope-run-us", "sine-scope-clkdiv") else args.driver
+    stem_target = args.sine_target if args.mode in WAVEFORM_SEQUENCE_MODES else args.driver
     stem_target = re.sub(r"[^A-Za-z0-9]+", "_", str(stem_target)).strip("_") or args.driver
     stem_map = re.sub(r"[^A-Za-z0-9]+", "_", args.channel_map).strip("_")
     stem = f"{stamp}_{args.mode}_{stem_map}_{stem_target}"
@@ -1042,7 +1117,7 @@ def main() -> int:
                         shell_log = []
                     else:
                         shell_log.append(send_shell_command(ser, "motor status", args.command_timeout, args.verbose_shell))
-                        if args.mode in ("sine-demo", "sine-phase", "sine-diag-inputs", "sine-pwm-inputs", "sine-scope-plot", "sine-scope-plot-us", "sine-scope-run-us", "sine-scope-clkdiv"):
+                        if args.mode in WAVEFORM_SEQUENCE_MODES:
                             command = command_for_sine_like_mode(args)
                         elif args.mode.startswith("diag-"):
                             direction = args.mode[len("diag-"):]
@@ -1073,7 +1148,9 @@ def main() -> int:
                         remaining = max(0.0, active_s - elapsed)
                         time.sleep(remaining + args.post_command_wait)
                         shell_log.append(read_response(ser, timeout_s=args.command_timeout))
-                        if needs_motor_off:
+                        if args.mode in WAVE_MODES:
+                            shell_log.append(send_shell_command(ser, "motor wave-stop", args.command_timeout, args.verbose_shell))
+                        elif needs_motor_off:
                             shell_log.append(send_shell_command(ser, "motor off", args.command_timeout, args.verbose_shell))
             finally:
                 if ser is not None:

@@ -67,9 +67,11 @@ Rev-A PWM evidence after replacing the suspect scope lead:
 - `motor pwm A reverse 50 3000`: the active waveform moved to the opposite A input, about 3.3 Vpp, 20 kHz, 4.7% duty.
 - This proves A-side timer PWM and the DRV8837 input path are working. If the generated scope report labels do not match the physical signal, verify whether CH1 is on `A1` or `A2`; the script assumes CH1 is the `*2` input and CH2 is the `*1` input.
 
-For future PCB revisions, route the primary propulsion phases A/B to normal
-PWMX-capable CH592 pins where possible, leaving timer PWM for the guard rail
-only if necessary.
+For future PCB revisions, do not move B1/B2 to `TMR0/TMR3` expecting DMA.
+CH592 exposes DMA for `TMR1/TMR2`; `TMR0/TMR3` have PWM output support but no
+documented timer DMA registers/API in the local SDK. Keep A on `TMR2/TMR1` for
+the proven DMA path, and keep B/G on PWMX pins unless a later register-level
+test proves a better hardware-offload path.
 
 When `motor pwm-debug` is used with a PWM-enabled build, first check:
 

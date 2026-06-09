@@ -59,6 +59,7 @@ Do not flash a dev-board smoke build to the target board for first electrical va
 19. Test `i2c lines`, then `i2c scan` and `ip5209 status` without WCH-LinkE actively debugging. If SCL/SDA are high but START never completes, try `i2c release-debug` and repeat the scan.
 20. Test motor logic with no load or disconnected coils first.
 21. Test motor PWM with current limiting and a logic analyzer before allowing any real motion.
+22. Only after finite motor motion is proven, test continuous motion and touch controls.
 
 ## First-Flash Checklist
 
@@ -198,6 +199,50 @@ audio qperiph
 ip5209 status
 ip5209 dump
 ```
+
+## Continuous Motion Start Point
+
+Do not start here on an unvalidated board. Use this only after safe pins, RGB,
+audio idle, I2C, and finite motor motion have already passed.
+
+Build and flash the target bring-up HEX with RGB on the Rev-A PA14 rework and
+full-scale motor duty enabled:
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "& { & 'Firmware\tools\build.ps1' -Profile bringup -ExtraDefine @('APP_RGB_WS2812_USE_SPI0_MOSI_PA14=1','APP_MOTOR_PWM_BACKEND_ENABLE=1','APP_MOTOR_PWM_MAX_DUTY_PERMILLE=1000') }"
+```
+
+Flash:
+
+```text
+Firmware\build\bringup\northpole_ch592_bringup.hex
+```
+
+Manual shell checks:
+
+```text
+motion status
+motor wave-run 3000 1000 20000 all sleep1 fwd guard-fwd
+motor off
+motor wave-run 3000 1000 20000 all sleep1 rev guard-fwd
+motor off
+motion start
+motion step 500
+motion step -500
+motion stop
+```
+
+Touch-pad behavior:
+
+- RUN toggles continuous motion on/off.
+- SPD+ increases signed electrical frequency.
+- SPD- decreases signed electrical frequency and reverses direction after
+  crossing zero.
+- G defaults to fixed guard mode, not a sine wave.
+
+Watch USB input current, bridge temperature, and coil/track temperature during
+every early run. The first motion test reached about `900 mA` total USB input
+current.
 
 ## Probe Points And Expected Safe States
 
