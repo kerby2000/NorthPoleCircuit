@@ -96,10 +96,21 @@ Build wrappers for the intended profiles:
 powershell -ExecutionPolicy Bypass -File Firmware\tools\build.ps1 -Profile evt-baseline
 powershell -ExecutionPolicy Bypass -File Firmware\tools\build.ps1 -Profile bringup
 powershell -ExecutionPolicy Bypass -File Firmware\tools\build.ps1 -Profile production
+powershell -ExecutionPolicy Bypass -File Firmware\tools\build_mvp_demo.ps1
 powershell -ExecutionPolicy Bypass -File Firmware\tools\build_matrix.ps1
 ```
 
 These wrappers default to `C:\WCH\CH592EVT` and `C:\MounRiver\MounRiver_Studio2`. Build outputs are expected under `Firmware/build/`, which is ignored by git.
+
+The MVP demo wrapper writes its flashable image to:
+
+```text
+Firmware/build/mvp_demo/northpole_ch592_bringup.hex
+```
+
+Use this only with the documented Rev-A rework state:
+`docs/mvp_demo.md`, `docs/rev_a_mvp_rework_state.md`, and
+`docs/first_integrated_demo_checklist.md`.
 
 Run host-side logic tests:
 

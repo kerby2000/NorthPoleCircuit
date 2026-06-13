@@ -209,8 +209,12 @@ Build and flash the target bring-up HEX with RGB on the Rev-A PA14 rework and
 full-scale motor duty enabled:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "& { & 'Firmware\tools\build.ps1' -Profile bringup -ExtraDefine @('APP_RGB_WS2812_USE_SPI0_MOSI_PA14=1','APP_MOTOR_PWM_BACKEND_ENABLE=1','APP_MOTOR_PWM_MAX_DUTY_PERMILLE=1000') }"
+powershell -ExecutionPolicy Bypass -File Firmware\tools\build.ps1 -Profile bringup
 ```
+
+The `bringup` profile now includes those Rev-A bench defaults. If
+`motor wave-status` reports `backend=0`, the flashed HEX is not a
+motion-capable target bring-up image.
 
 Flash:
 

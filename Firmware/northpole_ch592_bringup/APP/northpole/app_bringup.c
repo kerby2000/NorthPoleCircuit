@@ -1,6 +1,7 @@
 #include "audio_wt2003.h"
 #include "ble_service.h"
 #include "board.h"
+#include "demo_scene.h"
 #include "fault.h"
 #include "hall.h"
 #include "log.h"
@@ -61,6 +62,9 @@ void app_bringup_init(void)
     motion_control_init();
 #endif
 #endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_DEMO_SCENE_ENABLE
+    demo_scene_init();
+#endif
     ble_service_init();
     shell_init();
     bringup_initialized = 1;
@@ -79,6 +83,9 @@ void app_bringup_poll(void)
 #endif
 #if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_TOUCH
     touch_poll();
+#endif
+#if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_DEMO_SCENE_ENABLE
+    demo_scene_poll();
 #endif
 #if !APP_DEV_BOARD_BRINGUP_APP_SMOKE && APP_TARGET_ENABLE_MOTOR && APP_TARGET_ENABLE_TOUCH && APP_MOTION_CONTROL_ENABLE
     motion_control_poll();

@@ -60,7 +60,59 @@ settings save
 settings corrupt
 ```
 
+## MVP Demo
+
+Build the integrated Rev-A MVP image:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Firmware\tools\build_mvp_demo.ps1
+```
+
+Flash:
+
+```text
+Firmware\build\mvp_demo\northpole_ch592_bringup.hex
+```
+
+Demo shell commands:
+
+```text
+demo status
+demo clear-faults
+demo start
+demo stop
+demo emergency-stop
+demo speed <signed_hz_x1000>
+demo duration <ms>
+demo intensity <0-100>
+demo audio <on|off|track <id>|volume <0-31>|next>
+demo rgb <on|off|brightness <0-255>|effect <chase|stars|rainbow|breathe|strobe|christmas>>
+demo hall <on|off|reset>
+```
+
+Current manual movement checkpoint:
+
+```text
+motor wave-run-smooth 8000 1000 10000 all sleep1 fwd guard-fwd guard-duty 600
+```
+
+The MVP demo profile owns the touch pads. Touch actions are applied on release
+edges and now print the intended action. `RUN` short release toggles start/stop,
+long `RUN` is emergency stop, `SPD+` and `SPD-` adjust signed speed, and
+`MUSIC` starts/advances playback. `demo rgb effect stars` is the default MVP
+effect; use `demo rgb effect rainbow` to check blended color transitions. See
+`mvp_demo.md` and `first_integrated_demo_checklist.md`.
+
+On the Rev-A MVP image, Hall is disabled by default because the Hall footprint is
+wrong on this board revision. RGB and audio are still enabled by default. If
+`demo status` shows `state=FAULT` or `faults=0x...`, run `demo clear-faults`
+before `demo start` after confirming the board is safe.
+
 `settings save` reports `flash=0` in the default pre-hardware builds because `APP_SETTINGS_FLASH_ENABLE` is disabled. CRC/default/corruption recovery logic exists, but persistent storage is not proven until a flash/SNV backend is implemented and target-tested.
+
+See `mvp_runtime_timing.md` for the current MVP scheduling/timing model,
+including RGB SPI timing, motor update interrupts, audio queue behavior, and
+RAM/CPU headroom notes.
 
 ## Power
 
@@ -100,10 +152,31 @@ The first target-board I2C pass proved that `i2c release-debug` changes `R16_PIN
 
 ```text
 touch raw
+touch watch [ms] [period_ms]
 hall read
+hall watch [ms] [period_ms]
 ```
 
 Touch measurement currently returns a GPIO-level placeholder through the WCH board port. The old CH32V003 charge-time idea can be reused conceptually, but the CH592X touch/ADC peripheral should be preferred if it is stable.
+
+`touch watch` is the preferred physical touch-pad test. Example:
+
+```text
+touch watch 15000 20
+```
+
+It prints raw changes for `spd-`, `run`, `spd+`, and `music`. In the current
+GPIO-placeholder implementation, `pressed` mirrors nonzero `raw` when no
+calibrated threshold is configured.
+
+`hall watch` is the preferred physical magnet test after Hall rework. Example:
+
+```text
+hall watch 15000 20
+```
+
+It polls both Hall inputs for 15 seconds, prints changes immediately, and emits
+a heartbeat once per second.
 
 ## RGB
 
@@ -117,6 +190,12 @@ rgb idle-low
 rgb off
 rgb one <index> <r> <g> <b>
 rgb all <r> <g> <b>
+rgb walk <r> <g> <b> [ms]
+rgb scene stars [seconds] [brightness]
+rgb scene breathe <r> <g> <b> [cycles] [step_ms]
+rgb scene strobe [count] [brightness]
+rgb scene christmas [seconds] [step_ms]
+rgb scene rainbow [seconds] [brightness] [step_ms]
 rgb chase <brightness>
 rgb order test
 rgb show
@@ -127,6 +206,32 @@ rgb show
 Brightness is capped by `APP_RGB_BRINGUP_BRIGHTNESS_LIMIT`. Use `rgb backend`
 to confirm whether the build is using the normal PA15 bit-bang backend, the
 PA14/SPI0 MOSI backend, or the PA14 GPIO bit-bang backend.
+
+Use `rgb walk` for the most deterministic six-LED check. It clears the strip,
+lights one LED, waits for the optional dwell time, then moves to the next LED:
+
+```text
+rgb brightness 24
+rgb walk 24 0 0 250
+rgb walk 0 24 0 250
+rgb walk 0 0 24 250
+```
+
+Standalone RGB scene tests:
+
+```text
+rgb scene stars 8 24
+rgb scene rainbow 10 24 120
+rgb scene breathe 0 0 255 3 35
+rgb scene strobe 8 24
+rgb scene christmas 10 180
+```
+
+Expected visuals: `stars` gives random white/blue twinkles, `breathe` fades all
+LEDs in and out together, `strobe` flashes all LEDs white together, and
+`christmas` rotates a red/green pattern around the strip. `rainbow` moves a dim
+blended rainbow across the strip and is the best quick check that mixed colors
+are being rendered correctly.
 
 The CH592 PA15 WS2812 bit-bang backend is implemented, but timing still needs
 logic-analyzer validation with BLE interrupts active. For the Rev-A MVP rework,
@@ -200,13 +305,24 @@ motor sine-demo <speed_hz> <amplitude_permille> <ms> [AB|A|B|G|all]
 motor wave-status
 motor wave-stop
 motor wave-start <electrical_hz_x1000> <amplitude_permille> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]
+motor wave-start-smooth <electrical_hz_x1000> <amplitude_permille> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]
 motor wave-run <electrical_hz_x1000> <amplitude_permille> <ms> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]
+motor wave-run-smooth <electrical_hz_x1000> <amplitude_permille> <ms> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]
 motion status
 motion start
 motion stop
 motion speed <signed_hz_x1000>
 motion step <signed_delta_hz_x1000>
 motion guard <off|forward|reverse|phase-a|phase-b> [duty_permille]
+motion tune status
+motion tune proven
+motion tune original-like
+motion tune carrier <hz>
+motion tune update <hz>
+motion tune speed <signed_hz_x1000>
+motion tune amplitude <permille>
+motion tune guard <off|forward|reverse|phase-a|phase-b> <duty_permille>
+motion tune ramp <start_ms> <stop_ms> <speed_ms>
 ```
 
 Rules:
@@ -217,7 +333,26 @@ Rules:
 - Duty is capped by `APP_BRINGUP_MOTOR_DUTY_LIMIT_PERMILLE` in bring-up builds.
 - Command duration is capped by `APP_MOTOR_COMMAND_TIMEOUT_MS`.
 - `motor off` immediately disarms, coasts all DRV8837 inputs, then drives PB0 `/SLEEP` low.
-- The timer/PWM backend is present but compile-time disabled by default with `APP_MOTOR_PWM_BACKEND_ENABLE=0`.
+- The current target-board `bringup` build enables the Rev-A bench defaults:
+  `APP_RGB_WS2812_USE_SPI0_MOSI_PA14=1`, `APP_MOTOR_PWM_BACKEND_ENABLE=1`,
+  and `APP_MOTOR_PWM_MAX_DUTY_PERMILLE=1000`. If `motor wave-status` reports
+  `backend=0`, the flashed HEX is not a motion-capable target bring-up image.
+- `motor wave-run` is the known-good coarse 32-position timing path. Keep it
+  as the reference command while tuning.
+- `motor wave-run-smooth` uses the newer fixed-update 256-phase path. Test it
+  against `wave-run` before replacing the motion preset.
+- `motion tune proven` configures the motion wrapper to match the first
+  confirmed moving smooth command: 20 kHz PWM carrier, 4 kHz control update,
+  3 Hz electrical speed, 1000 permille A/B amplitude, fixed forward guard at
+  1000 permille, and zero ramp. Use this as the motion-controller checkpoint.
+- `motion tune original-like` configures the smoother 256-phase control path:
+  100 kHz PWM carrier, 4 kHz control update, 8 Hz electrical speed, 700 permille
+  A/B amplitude, fixed forward guard at 600 permille, and start/stop/speed ramps.
+  This is still an experimental tuning target on the Rev-A bench sled; it may
+  not move the sled even though the firmware reports the wave engine running.
+- `motion stop` ramps down before disabling `/SLEEP`; `motor off` remains the
+  immediate emergency stop.
+- Carrier and update-rate changes are accepted only while motion is stopped.
 
 `motor sine-demo` is a bounded diagnostic for checking pseudo-sine PWM envelopes on the DRV8837 input pins. It self-arms, steps a 32-sample sine table, then forces `motor off`. The default target is `AB`, where A uses phase 0 and B uses phase +90 degrees. Use `A`, `B`, or `G` to put the same signed sine envelope on one bridge while probing that bridge. Use low values first, for example:
 
@@ -247,15 +382,17 @@ If this is too weak for motion, rebuild with a higher
 `APP_MOTOR_PWM_MAX_DUTY_PERMILLE` and keep the command duration short while
 watching coil temperature and supply current.
 
-2026-06-06 first-motion build used:
+2026-06-06 first-motion build used these defines, which are now the default
+for the `bringup` profile:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "& { & 'Firmware\tools\build.ps1' -Profile bringup -ExtraDefine @('APP_RGB_WS2812_USE_SPI0_MOSI_PA14=1','APP_MOTOR_PWM_BACKEND_ENABLE=1','APP_MOTOR_PWM_MAX_DUTY_PERMILLE=1000') }"
+powershell -ExecutionPolicy Bypass -File Firmware\tools\build.ps1 -Profile bringup
 ```
 
-This removes the software duty cap for finite `sleep1` wave commands. It does
-not make the motor run indefinitely; use short `wave-run` commands and finish
-with `motor off`.
+This enables the PA14 RGB rework path, enables the motor wave backend, and
+removes the software duty cap for finite `sleep1` wave commands. It does not
+make the motor run indefinitely; use short `wave-run` commands and finish with
+`motor off`.
 
 2026-06-06 first real shuttle/sledge motion milestone:
 

@@ -214,6 +214,33 @@ if (!$forceNoWchDebugPrint -and ($WchDebugPrint -or $autoWchDebugPrint)) {
 if ($profileDefine) {
     $commonArgs += "-D$profileDefine"
 }
+
+function Test-DefinePresent {
+    param(
+        [string[]]$Defines,
+        [string]$Name
+    )
+
+    foreach ($define in $Defines) {
+        if ($define -eq $Name -or $define.StartsWith("$Name=", [System.StringComparison]::Ordinal)) {
+            return $true
+        }
+    }
+    return $false
+}
+
+if ($Profile -eq "bringup") {
+    if (!(Test-DefinePresent -Defines $ExtraDefine -Name "APP_RGB_WS2812_USE_SPI0_MOSI_PA14") -and
+        !(Test-DefinePresent -Defines $ExtraDefine -Name "APP_RGB_WS2812_USE_PA14_BITBANG")) {
+        $commonArgs += "-DAPP_RGB_WS2812_USE_SPI0_MOSI_PA14=1"
+    }
+    if (!(Test-DefinePresent -Defines $ExtraDefine -Name "APP_MOTOR_PWM_BACKEND_ENABLE")) {
+        $commonArgs += "-DAPP_MOTOR_PWM_BACKEND_ENABLE=1"
+    }
+    if (!(Test-DefinePresent -Defines $ExtraDefine -Name "APP_MOTOR_PWM_MAX_DUTY_PERMILLE")) {
+        $commonArgs += "-DAPP_MOTOR_PWM_MAX_DUTY_PERMILLE=1000"
+    }
+}
 foreach ($define in $ExtraDefine) {
     if ($define) {
         $commonArgs += "-D$define"

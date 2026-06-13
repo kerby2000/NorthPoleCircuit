@@ -41,7 +41,9 @@ void touch_poll(void)
         if (touch_states[i].baseline == 0) {
             touch_states[i].baseline = raw;
         }
-        touch_states[i].pressed = touch_states[i].threshold > 0 && raw > touch_states[i].threshold;
+        touch_states[i].pressed = touch_states[i].threshold > 0 ?
+            (uint8_t)(raw > touch_states[i].threshold) :
+            (uint8_t)(raw != 0u);
     }
 }
 

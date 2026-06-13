@@ -27,12 +27,18 @@ typedef struct {
     uint8_t phase;
     int8_t direction;
     uint8_t guard_mode;
+    uint16_t sine_table_size;
     uint16_t amplitude_permille;
     uint16_t guard_duty_permille;
     uint32_t carrier_hz;
+    uint32_t control_update_hz;
     uint32_t electrical_hz_x1000;
+    uint32_t actual_electrical_hz_x1000;
+    uint32_t phase_acc;
+    uint32_t phase_inc;
     uint32_t sample_ticks;
     uint32_t tick_count;
+    uint32_t missed_update_count;
     uint32_t dma_entries;
     uint32_t dma_repeat_per_sample;
 } northpole_motor_wave_status_t;
@@ -48,6 +54,13 @@ int northpole_motor_wave_start_ex(uint32_t electrical_hz_x1000,
                                   int8_t direction,
                                   uint8_t guard_mode,
                                   uint16_t guard_duty_permille);
+int northpole_motor_wave_start_smooth_ex(uint32_t electrical_hz_x1000,
+                                         uint16_t amplitude_permille,
+                                         uint8_t target_flags,
+                                         uint8_t sleep_high,
+                                         int8_t direction,
+                                         uint8_t guard_mode,
+                                         uint16_t guard_duty_permille);
 int northpole_motor_wave_start_slot_us(uint32_t slot_us,
                                        uint16_t amplitude_permille,
                                        uint8_t target_flags,
@@ -66,6 +79,13 @@ int northpole_motor_wave_dma_hybrid_start_slot_us(uint32_t slot_us,
                                                   uint16_t amplitude_permille,
                                                   uint8_t target_flags,
                                                   uint8_t sleep_high);
+int northpole_motor_wave_update(uint32_t electrical_hz_x1000,
+                                uint16_t amplitude_permille,
+                                int8_t direction,
+                                uint8_t guard_mode,
+                                uint16_t guard_duty_permille);
+int northpole_motor_wave_set_carrier_hz(uint32_t carrier_hz);
+int northpole_motor_wave_set_control_update_hz(uint32_t update_hz);
 void northpole_motor_wave_stop(void);
 void northpole_motor_wave_status(northpole_motor_wave_status_t *status);
 const char *northpole_motor_guard_mode_name(uint8_t guard_mode);

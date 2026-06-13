@@ -96,17 +96,21 @@ Generated CSV and image captures are ignored by Git by default. Keep selected ev
 
 ## Motor Bridge PWM Capture
 
-Default target firmware keeps the timer PWM backend disabled:
+The current target-board `bringup` firmware enables the timer PWM backend by
+default:
 
 ```text
-APP_MOTOR_PWM_BACKEND_ENABLE=0
+APP_MOTOR_PWM_BACKEND_ENABLE=1
 ```
 
-For real PWM on the DRV8837 inputs, build and flash a PWM-enabled bring-up image:
+Build and flash the normal bring-up image before motor captures:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File Firmware\tools\build.ps1 -Profile bringup -ExtraDefine APP_MOTOR_PWM_BACKEND_ENABLE=1
+powershell -ExecutionPolicy Bypass -File Firmware\tools\build.ps1 -Profile bringup
 ```
+
+If the shell reports `motor wave-status ... backend=0`, the flashed HEX was
+built with the old safe default and cannot generate wave motion.
 
 Probe setup for bridge B:
 

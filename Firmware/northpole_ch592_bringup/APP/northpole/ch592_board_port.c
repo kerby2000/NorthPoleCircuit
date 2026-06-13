@@ -75,6 +75,8 @@
 #define MOTOR_WAVE_TARGET_B NORTHPOLE_MOTOR_WAVE_TARGET_B
 #define MOTOR_WAVE_TARGET_G NORTHPOLE_MOTOR_WAVE_TARGET_G
 #define MOTOR_WAVE_DMA_MAX_ENTRIES 256u
+#define MOTOR_WAVE_TABLE_SIZE 256u
+#define MOTOR_WAVE_PHASE_SHIFT_90 64u
 
 #if defined(FREQ_SYS) && (FREQ_SYS != APP_WS2812_BITBANG_ASSUMED_FREQ_SYS_HZ)
 #warning "WS2812 bit-bang timing assumes 60 MHz FREQ_SYS; validate timing or retune NOP counts before using RGB."
@@ -94,6 +96,7 @@ typedef struct {
 static uint8_t audio_uart_ready;
 static uint8_t debug_uart_ready;
 static uint32_t motor_pwm_hz = APP_MOTOR_PWM_DEFAULT_HZ;
+static uint32_t motor_control_update_hz = APP_MOTOR_CONTROL_UPDATE_HZ;
 static uint32_t motor_timer_cycle_ticks;
 static uint16_t motor_pwmx_cycle_ticks;
 static uint8_t motor_pwm_platform_initialized;
@@ -107,11 +110,17 @@ typedef struct {
     volatile uint8_t phase;
     volatile int8_t direction;
     volatile uint8_t guard_mode;
+    volatile uint16_t sine_table_size;
     volatile uint16_t amplitude_permille;
     volatile uint16_t guard_duty_permille;
+    volatile uint32_t control_update_hz;
     volatile uint32_t electrical_hz_x1000;
+    volatile uint32_t actual_electrical_hz_x1000;
+    volatile uint32_t phase_acc;
+    volatile uint32_t phase_inc;
     volatile uint32_t sample_ticks;
     volatile uint32_t tick_count;
+    volatile uint32_t missed_update_count;
     volatile uint32_t dma_entries;
     volatile uint32_t dma_repeat_per_sample;
 } motor_wave_runtime_t;
@@ -505,6 +514,57 @@ static uint16_t motor_pwm_duty_ticks(uint16_t duty_permille)
     return (uint16_t)ticks;
 }
 
+static uint32_t motor_wave_update_ticks_for_hz(uint32_t update_hz)
+{
+    uint32_t ticks;
+
+    if (update_hz < APP_MOTOR_CONTROL_UPDATE_MIN_HZ ||
+        update_hz > APP_MOTOR_CONTROL_UPDATE_MAX_HZ) {
+        return 0u;
+    }
+    ticks = FREQ_SYS / update_hz;
+    if (ticks < 1200u || ticks > 67108864UL) {
+        return 0u;
+    }
+    return ticks;
+}
+
+static uint32_t motor_wave_phase_inc_for_hz(uint32_t electrical_hz_x1000,
+                                            uint32_t update_hz)
+{
+    uint64_t numerator;
+    uint64_t denominator;
+
+    if (electrical_hz_x1000 == 0u || update_hz == 0u) {
+        return 0u;
+    }
+    numerator = ((uint64_t)electrical_hz_x1000 << 32);
+    denominator = (uint64_t)update_hz * 1000ULL;
+    return (uint32_t)((numerator + (denominator / 2ULL)) / denominator);
+}
+
+static uint32_t motor_wave_actual_hz_x1000(uint32_t phase_inc, uint32_t update_hz)
+{
+    uint64_t numerator;
+
+    if (phase_inc == 0u || update_hz == 0u) {
+        return 0u;
+    }
+    numerator = (uint64_t)phase_inc * (uint64_t)update_hz * 1000ULL;
+    return (uint32_t)((numerator + (1ULL << 31)) >> 32);
+}
+
+static void motor_pwm_reconfigure_carrier(uint32_t pwm_hz)
+{
+    if (pwm_hz == 0u) {
+        pwm_hz = APP_MOTOR_PWM_DEFAULT_HZ;
+    }
+    motor_pwm_hz = pwm_hz;
+    motor_timer_cycle_ticks = motor_timer_cycle_for_hz(motor_pwm_hz);
+    motor_pwmx_cycle_ticks = motor_pwmx_cycle_for_hz(motor_pwm_hz);
+    motor_pwm_platform_initialized = 1u;
+}
+
 static void motor_pwmx_configure_globals(void)
 {
 #if APP_MOTOR_PWM_BACKEND_ENABLE
@@ -675,10 +735,7 @@ static void motor_driver_static_apply(motor_driver_id_t driver,
 
 void motor_drv8837_platform_init(uint32_t pwm_hz)
 {
-    motor_pwm_hz = pwm_hz == 0 ? APP_MOTOR_PWM_DEFAULT_HZ : pwm_hz;
-    motor_timer_cycle_ticks = motor_timer_cycle_for_hz(motor_pwm_hz);
-    motor_pwmx_cycle_ticks = motor_pwmx_cycle_for_hz(motor_pwm_hz);
-    motor_pwm_platform_initialized = 1u;
+    motor_pwm_reconfigure_carrier(pwm_hz);
 
     motor_timer1_disable_low();
     motor_timer2_disable_low();
@@ -866,14 +923,30 @@ void northpole_motor_pwm_diag_apply(motor_driver_id_t driver,
 
 static int16_t motor_wave_sine_sample(uint8_t phase)
 {
-    static const int16_t sine_q15[32] = {
-        0, 6393, 12540, 18204, 23170, 27245, 30273, 32137,
-        32767, 32137, 30273, 27245, 23170, 18204, 12540, 6393,
-        0, -6393, -12540, -18204, -23170, -27245, -30273, -32137,
-        -32767, -32137, -30273, -27245, -23170, -18204, -12540, -6393,
+    static const int16_t sine_q15_quarter[65] = {
+        0, 804, 1608, 2410, 3212, 4011, 4808, 5602,
+        6393, 7179, 7962, 8739, 9512, 10278, 11039, 11793,
+        12539, 13279, 14010, 14732, 15446, 16151, 16846, 17530,
+        18204, 18868, 19519, 20159, 20787, 21403, 22005, 22594,
+        23170, 23731, 24279, 24811, 25329, 25832, 26319, 26790,
+        27245, 27683, 28105, 28510, 28898, 29268, 29621, 29956,
+        30273, 30571, 30852, 31113, 31356, 31580, 31785, 31971,
+        32137, 32285, 32412, 32521, 32609, 32678, 32728, 32757,
+        32767,
     };
+    uint8_t quadrant = (uint8_t)(phase >> 6);
+    uint8_t offset = (uint8_t)(phase & 0x3fu);
 
-    return sine_q15[phase & 31u];
+    switch (quadrant) {
+    case 0:
+        return sine_q15_quarter[offset];
+    case 1:
+        return sine_q15_quarter[64u - offset];
+    case 2:
+        return (int16_t)-sine_q15_quarter[offset];
+    default:
+        return (int16_t)-sine_q15_quarter[64u - offset];
+    }
 }
 
 #if APP_MOTOR_PWM_BACKEND_ENABLE
@@ -972,10 +1045,45 @@ const char *northpole_motor_guard_mode_name(uint8_t guard_mode)
     }
 }
 
+static uint8_t motor_wave_guard_mode_phase_updated(uint8_t guard_mode)
+{
+    return (guard_mode == NORTHPOLE_MOTOR_GUARD_PHASE_A ||
+            guard_mode == NORTHPOLE_MOTOR_GUARD_PHASE_B) ? 1u : 0u;
+}
+
+static void motor_wave_apply_fixed_guard(void)
+{
+    int16_t guard_sample = 0;
+    uint16_t guard_duty = motor_wave.guard_duty_permille;
+
+    if ((motor_wave.target_flags & MOTOR_WAVE_TARGET_G) == 0u) {
+        guard_duty = 0u;
+    } else {
+        switch (motor_wave.guard_mode) {
+        case NORTHPOLE_MOTOR_GUARD_FORWARD:
+            guard_sample = 32767;
+            break;
+        case NORTHPOLE_MOTOR_GUARD_REVERSE:
+            guard_sample = -32767;
+            break;
+        case NORTHPOLE_MOTOR_GUARD_OFF:
+            guard_duty = 0u;
+            break;
+        default:
+            if (motor_wave_guard_mode_phase_updated(motor_wave.guard_mode)) {
+                return;
+            }
+            guard_duty = 0u;
+            break;
+        }
+    }
+
+    motor_wave_pwmx_set_pair(CH_PWM5, CH_PWM4, guard_sample, guard_duty);
+}
+
 static void motor_wave_apply_phase(uint8_t phase)
 {
     uint16_t amplitude = motor_wave.amplitude_permille;
-    uint16_t guard_duty = motor_wave.guard_duty_permille;
     int16_t guard_sample = 0;
 
     if (motor_wave.target_flags & 0x01u) {
@@ -989,40 +1097,29 @@ static void motor_wave_apply_phase(uint8_t phase)
     if (motor_wave.target_flags & 0x02u) {
         motor_wave_pwmx_set_pair(CH_PWM9,
                                  CH_PWM7,
-                                 motor_wave_sine_sample((uint8_t)(phase + 8u)),
+                                 motor_wave_sine_sample((uint8_t)(phase + MOTOR_WAVE_PHASE_SHIFT_90)),
                                  amplitude);
     } else {
         motor_wave_pwmx_set_pair(CH_PWM9, CH_PWM7, 0, 0u);
     }
 
-    if (motor_wave.target_flags & 0x04u) {
+    if ((motor_wave.target_flags & MOTOR_WAVE_TARGET_G) &&
+        motor_wave_guard_mode_phase_updated(motor_wave.guard_mode)) {
         switch (motor_wave.guard_mode) {
-        case NORTHPOLE_MOTOR_GUARD_FORWARD:
-            guard_sample = 32767;
-            break;
-        case NORTHPOLE_MOTOR_GUARD_REVERSE:
-            guard_sample = -32767;
-            break;
         case NORTHPOLE_MOTOR_GUARD_PHASE_A:
             guard_sample = motor_wave_sine_sample(phase);
-            guard_duty = amplitude;
             break;
         case NORTHPOLE_MOTOR_GUARD_PHASE_B:
-            guard_sample = motor_wave_sine_sample((uint8_t)(phase + 8u));
-            guard_duty = amplitude;
+            guard_sample = motor_wave_sine_sample((uint8_t)(phase + MOTOR_WAVE_PHASE_SHIFT_90));
             break;
-        case NORTHPOLE_MOTOR_GUARD_OFF:
         default:
             guard_sample = 0;
-            guard_duty = 0u;
             break;
         }
         motor_wave_pwmx_set_pair(CH_PWM5,
                                  CH_PWM4,
                                  guard_sample,
-                                 guard_duty);
-    } else {
-        motor_wave_pwmx_set_pair(CH_PWM5, CH_PWM4, 0, 0u);
+                                 amplitude);
     }
 }
 
@@ -1068,7 +1165,7 @@ static uint32_t motor_wave_dma_fill_a(uint16_t amplitude_permille, uint32_t repe
     uint32_t index = 0u;
 
     for (uint8_t phase = 0u; phase < 32u; ++phase) {
-        int16_t sample = motor_wave_sine_sample(phase);
+        int16_t sample = motor_wave_sine_sample((uint8_t)(phase * 8u));
         uint16_t duty = motor_wave_duty_from_sample(sample, amplitude_permille);
         uint32_t ticks = motor_timer_duty_ticks(duty);
         uint32_t a1_ticks = 0u;
@@ -1139,11 +1236,15 @@ static int motor_wave_dma_a_start_ticks(uint32_t requested_sample_ticks,
     motor_wave_dma_disable();
     motor_wave.running = 0u;
     motor_wave.phase = 0u;
+    motor_wave.phase_acc = 0u;
+    motor_wave.phase_inc = 0u;
     motor_wave.tick_count = 0u;
+    motor_wave.missed_update_count = 0u;
     motor_wave.target_flags = target_flags;
     motor_wave.sleep_high = sleep_high ? 1u : 0u;
     motor_wave.direction = 1;
     motor_wave.guard_mode = NORTHPOLE_MOTOR_GUARD_PHASE_A;
+    motor_wave.sine_table_size = 32u;
     motor_wave.amplitude_permille = amplitude_permille;
     motor_wave.guard_duty_permille = amplitude_permille;
     motor_wave.sample_ticks = repeat_per_sample * motor_timer_cycle_ticks;
@@ -1153,6 +1254,9 @@ static int motor_wave_dma_a_start_ticks(uint32_t requested_sample_ticks,
     electrical_hz_x1000 = ((uint64_t)FREQ_SYS * 1000ULL) /
                           ((uint64_t)motor_wave.sample_ticks * 32ULL);
     motor_wave.electrical_hz_x1000 = (uint32_t)electrical_hz_x1000;
+    motor_wave.actual_electrical_hz_x1000 = motor_wave.electrical_hz_x1000;
+    motor_wave.control_update_hz =
+        (uint32_t)((uint64_t)FREQ_SYS / (uint64_t)motor_wave.sample_ticks);
 
     motor_pwmx_configure_globals();
     GPIOB_ModeCfg(bPWM9 | bPWM7, GPIO_ModeOut_PP_5mA);
@@ -1185,6 +1289,7 @@ static int motor_wave_dma_a_start_ticks(uint32_t requested_sample_ticks,
     northpole_diag_force_gpio_output(BOARD_OUTPUT_MOTOR_SLEEP, sleep_high ? 1u : 0u);
     motor_wave.running = 1u;
     motor_wave.dma_mode = 1u;
+    motor_wave_apply_fixed_guard();
 
     if (target_flags & (MOTOR_WAVE_TARGET_B | MOTOR_WAVE_TARGET_G)) {
         motor_wave_apply_phase(0u);
@@ -1207,6 +1312,9 @@ static int motor_wave_start_ticks(uint32_t sample_ticks,
                                   uint8_t guard_mode,
                                   uint16_t guard_duty_permille)
 {
+    uint32_t phase_inc;
+    uint32_t update_hz;
+
     if (target_flags == 0u || sample_ticks < 1200u || sample_ticks > 67108864UL) {
         return -1;
     }
@@ -1225,19 +1333,31 @@ static int motor_wave_start_ticks(uint32_t sample_ticks,
     if (sleep_high && guard_duty_permille > APP_MOTOR_PWM_MAX_DUTY_PERMILLE) {
         return -2;
     }
+    update_hz = (uint32_t)((uint64_t)FREQ_SYS / (uint64_t)sample_ticks);
+    if (update_hz == 0u) {
+        return -1;
+    }
+    phase_inc = motor_wave_phase_inc_for_hz(electrical_hz_x1000, update_hz);
 
     motor_wave_disable_scheduler();
     motor_wave_dma_disable();
     motor_wave.running = 0u;
     motor_wave.phase = 0u;
+    motor_wave.phase_acc = 0u;
+    motor_wave.phase_inc = phase_inc;
     motor_wave.tick_count = 0u;
+    motor_wave.missed_update_count = 0u;
     motor_wave.target_flags = target_flags;
     motor_wave.sleep_high = sleep_high ? 1u : 0u;
     motor_wave.direction = direction < 0 ? -1 : 1;
     motor_wave.guard_mode = guard_mode;
+    motor_wave.sine_table_size = MOTOR_WAVE_TABLE_SIZE;
     motor_wave.amplitude_permille = amplitude_permille;
     motor_wave.guard_duty_permille = guard_duty_permille;
+    motor_wave.control_update_hz = update_hz;
     motor_wave.electrical_hz_x1000 = electrical_hz_x1000;
+    motor_wave.actual_electrical_hz_x1000 =
+        motor_wave_actual_hz_x1000(phase_inc, update_hz);
     motor_wave.sample_ticks = sample_ticks;
     motor_wave.dma_entries = 0u;
     motor_wave.dma_repeat_per_sample = 0u;
@@ -1246,6 +1366,7 @@ static int motor_wave_start_ticks(uint32_t sample_ticks,
     motor_wave_configure_outputs();
     northpole_diag_force_gpio_output(BOARD_OUTPUT_MOTOR_SLEEP, sleep_high ? 1u : 0u);
     motor_wave_apply_phase(0u);
+    motor_wave_apply_fixed_guard();
 
     motor_wave.running = 1u;
     R32_TMR3_CNT_END = sample_ticks;
@@ -1327,6 +1448,45 @@ int northpole_motor_wave_start_ex(uint32_t electrical_hz_x1000,
 #endif
 }
 
+int northpole_motor_wave_start_smooth_ex(uint32_t electrical_hz_x1000,
+                                         uint16_t amplitude_permille,
+                                         uint8_t target_flags,
+                                         uint8_t sleep_high,
+                                         int8_t direction,
+                                         uint8_t guard_mode,
+                                         uint16_t guard_duty_permille)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    uint32_t ticks;
+
+    if (electrical_hz_x1000 == 0u) {
+        return -1;
+    }
+
+    ticks = motor_wave_update_ticks_for_hz(motor_control_update_hz);
+    if (ticks == 0u) {
+        return -1;
+    }
+    return motor_wave_start_ticks(ticks,
+                                  electrical_hz_x1000,
+                                  amplitude_permille,
+                                  target_flags,
+                                  sleep_high,
+                                  direction,
+                                  guard_mode,
+                                  guard_duty_permille);
+#else
+    (void)electrical_hz_x1000;
+    (void)amplitude_permille;
+    (void)target_flags;
+    (void)sleep_high;
+    (void)direction;
+    (void)guard_mode;
+    (void)guard_duty_permille;
+    return -10;
+#endif
+}
+
 int northpole_motor_wave_start_slot_us(uint32_t slot_us,
                                        uint16_t amplitude_permille,
                                        uint8_t target_flags,
@@ -1361,7 +1521,7 @@ int northpole_motor_wave_start_slot_us_ex(uint32_t slot_us,
     if (ticks > 0xffffffffULL) {
         return -1;
     }
-    electrical_hz_x1000 = (uint32_t)(1000000000ULL / ((uint64_t)slot_us * 32ULL));
+    electrical_hz_x1000 = (uint32_t)(1000000000ULL / ((uint64_t)slot_us * MOTOR_WAVE_TABLE_SIZE));
     return motor_wave_start_ticks((uint32_t)ticks,
                                   electrical_hz_x1000,
                                   amplitude_permille,
@@ -1441,6 +1601,90 @@ int northpole_motor_wave_dma_hybrid_start_slot_us(uint32_t slot_us,
 #endif
 }
 
+int northpole_motor_wave_update(uint32_t electrical_hz_x1000,
+                                uint16_t amplitude_permille,
+                                int8_t direction,
+                                uint8_t guard_mode,
+                                uint16_t guard_duty_permille)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    uint32_t phase_inc;
+
+    if (!motor_wave.running || motor_wave.dma_mode) {
+        return -1;
+    }
+    if (amplitude_permille > 1000u) {
+        amplitude_permille = 1000u;
+    }
+    if (guard_duty_permille > 1000u) {
+        guard_duty_permille = 1000u;
+    }
+    if (!motor_wave_guard_mode_valid(guard_mode)) {
+        return -3;
+    }
+    if (motor_wave.sleep_high && amplitude_permille > APP_MOTOR_PWM_MAX_DUTY_PERMILLE) {
+        return -2;
+    }
+    if (motor_wave.sleep_high && guard_duty_permille > APP_MOTOR_PWM_MAX_DUTY_PERMILLE) {
+        return -2;
+    }
+
+    phase_inc = motor_wave_phase_inc_for_hz(electrical_hz_x1000,
+                                            motor_wave.control_update_hz);
+    motor_wave.direction = direction < 0 ? -1 : 1;
+    motor_wave.guard_mode = guard_mode;
+    motor_wave.amplitude_permille = amplitude_permille;
+    motor_wave.guard_duty_permille = guard_duty_permille;
+    motor_wave.electrical_hz_x1000 = electrical_hz_x1000;
+    motor_wave.phase_inc = phase_inc;
+    motor_wave.actual_electrical_hz_x1000 =
+        motor_wave_actual_hz_x1000(phase_inc, motor_wave.control_update_hz);
+    motor_wave_apply_fixed_guard();
+    return 0;
+#else
+    (void)electrical_hz_x1000;
+    (void)amplitude_permille;
+    (void)direction;
+    (void)guard_mode;
+    (void)guard_duty_permille;
+    return -10;
+#endif
+}
+
+int northpole_motor_wave_set_carrier_hz(uint32_t carrier_hz)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    if (carrier_hz < 1000u || carrier_hz > 200000u) {
+        return -1;
+    }
+    if (motor_wave.running) {
+        return -2;
+    }
+    motor_pwm_reconfigure_carrier(carrier_hz);
+    return 0;
+#else
+    (void)carrier_hz;
+    return -10;
+#endif
+}
+
+int northpole_motor_wave_set_control_update_hz(uint32_t update_hz)
+{
+#if APP_MOTOR_PWM_BACKEND_ENABLE
+    if (motor_wave.running) {
+        return -2;
+    }
+    if (motor_wave_update_ticks_for_hz(update_hz) == 0u) {
+        return -1;
+    }
+    motor_control_update_hz = update_hz;
+    return 0;
+#else
+    (void)update_hz;
+    return -10;
+#endif
+}
+
 void northpole_motor_wave_stop(void)
 {
 #if APP_MOTOR_PWM_BACKEND_ENABLE
@@ -1450,8 +1694,15 @@ void northpole_motor_wave_stop(void)
     motor_wave.target_flags = 0u;
     motor_wave.sleep_high = 0u;
     motor_wave.phase = 0u;
+    motor_wave.phase_acc = 0u;
+    motor_wave.phase_inc = 0u;
     motor_wave.direction = 1;
     motor_wave.guard_mode = NORTHPOLE_MOTOR_GUARD_OFF;
+    motor_wave.sine_table_size = MOTOR_WAVE_TABLE_SIZE;
+    motor_wave.control_update_hz = motor_control_update_hz;
+    motor_wave.electrical_hz_x1000 = 0u;
+    motor_wave.actual_electrical_hz_x1000 = 0u;
+    motor_wave.amplitude_permille = 0u;
     motor_wave.guard_duty_permille = 0u;
     motor_wave.dma_entries = 0u;
     motor_wave.dma_repeat_per_sample = 0u;
@@ -1492,12 +1743,18 @@ void northpole_motor_wave_status(northpole_motor_wave_status_t *status)
     status->phase = motor_wave.phase;
     status->direction = motor_wave.direction;
     status->guard_mode = motor_wave.guard_mode;
+    status->sine_table_size = motor_wave.sine_table_size ? motor_wave.sine_table_size : MOTOR_WAVE_TABLE_SIZE;
     status->amplitude_permille = motor_wave.amplitude_permille;
     status->guard_duty_permille = motor_wave.guard_duty_permille;
     status->carrier_hz = motor_pwm_hz;
+    status->control_update_hz = motor_wave.control_update_hz ? motor_wave.control_update_hz : motor_control_update_hz;
     status->electrical_hz_x1000 = motor_wave.electrical_hz_x1000;
+    status->actual_electrical_hz_x1000 = motor_wave.actual_electrical_hz_x1000;
+    status->phase_acc = motor_wave.phase_acc;
+    status->phase_inc = motor_wave.phase_inc;
     status->sample_ticks = motor_wave.sample_ticks;
     status->tick_count = motor_wave.tick_count;
+    status->missed_update_count = motor_wave.missed_update_count;
     status->dma_entries = motor_wave.dma_entries;
     status->dma_repeat_per_sample = motor_wave.dma_repeat_per_sample;
 }
@@ -1510,11 +1767,19 @@ void TMR3_IRQHandler(void)
     if (TMR3_GetITFlag(TMR0_3_IT_CYC_END)) {
         TMR3_ClearITFlag(TMR0_3_IT_CYC_END);
         if (motor_wave.running) {
-            motor_wave_apply_phase(motor_wave.phase);
-            if (motor_wave.direction < 0) {
-                motor_wave.phase = (uint8_t)((motor_wave.phase + 31u) & 31u);
-            } else {
+            if (motor_wave.dma_mode) {
+                motor_wave_apply_phase((uint8_t)(motor_wave.phase * 8u));
                 motor_wave.phase = (uint8_t)((motor_wave.phase + 1u) & 31u);
+            } else {
+                uint8_t phase = (uint8_t)(motor_wave.phase_acc >> 24);
+
+                motor_wave.phase = phase;
+                motor_wave_apply_phase(phase);
+                if (motor_wave.direction < 0) {
+                    motor_wave.phase_acc -= motor_wave.phase_inc;
+                } else {
+                    motor_wave.phase_acc += motor_wave.phase_inc;
+                }
             }
             motor_wave.tick_count++;
         }

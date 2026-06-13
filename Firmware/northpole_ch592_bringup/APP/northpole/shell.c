@@ -5,6 +5,7 @@
 #include "audio_wt2003.h"
 #include "board.h"
 #include "build_profile.h"
+#include "demo_scene.h"
 #include "fault.h"
 #include "hall.h"
 #include "i2c_bus.h"
@@ -57,6 +58,7 @@ static int cmd_safe(int argc, char **argv);
 static int cmd_audio(int argc, char **argv);
 static int cmd_motor(int argc, char **argv);
 static int cmd_motion(int argc, char **argv);
+static int cmd_demo(int argc, char **argv);
 static int cmd_rgb(int argc, char **argv);
 static int cmd_hall(int argc, char **argv);
 static int cmd_touch(int argc, char **argv);
@@ -64,6 +66,7 @@ static int cmd_i2c(int argc, char **argv);
 static int cmd_ip5209(int argc, char **argv);
 static int cmd_settings(int argc, char **argv);
 static int cmd_reset(int argc, char **argv);
+static void shell_wait_ms(uint32_t duration_ms);
 static void format_bits8(uint8_t value, char out[10]);
 static void log_ip5209_reg8(const char *name, uint8_t reg, uint8_t value);
 static void log_ip5209_verbose_dump(const power_ip5209_status_t *status,
@@ -105,10 +108,11 @@ static const shell_command_t builtin_commands[] = {
     {"safe", "safe check", cmd_safe},
     {"audio", "audio status|raw <hex...>|version|qvol|qstatus|qcount-ext|qperiph|busy|volume <0-31>|play-index <id>|play-name <name>|stop|pause|next|prev|mode <single|single-loop|all-loop|random>|output <spk|dac>|sleep <idle|deep>|format-ext-flash CONFIRM", cmd_audio},
     {"motor", "motor status|arm <seconds>|off|pwm-debug|wave-status|wave-stop|wave-start/wave-clkdiv/wave-run ... [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]|pwm <A|B|G> <forward|reverse|coast|brake> <duty_permille> <ms>|sine-* diagnostics|diag-inputs <A|B|G> <forward|reverse|coast|brake> <ms>", cmd_motor},
-    {"motion", "motion status|start|stop|speed <signed_hz_x1000>|step <signed_delta_hz_x1000>|guard <off|forward|reverse|phase-a|phase-b> [duty_permille]", cmd_motion},
-    {"rgb", "rgb backend|brightness <0-255>|diag-pa14 <high|low|square>|off|idle-low|one <idx> <r> <g> <b>|all <r> <g> <b>|chase <brightness>|order test|show", cmd_rgb},
-    {"hall", "hall read", cmd_hall},
-    {"touch", "touch raw", cmd_touch},
+    {"motion", "motion status|start|stop|speed <signed_hz_x1000>|step <signed_delta_hz_x1000>|guard <off|forward|reverse|phase-a|phase-b> [duty_permille]|tune ...", cmd_motion},
+    {"demo", "demo status|start|stop|emergency-stop|speed <signed_hz_x1000>|duration <ms>|intensity <0-100>|audio ...|rgb ...|hall ...", cmd_demo},
+    {"rgb", "rgb backend|brightness <0-255>|diag-pa14 <high|low|square>|off|idle-low|one <idx> <r> <g> <b>|all <r> <g> <b>|walk <r> <g> <b> [ms]|scene <stars|breathe|strobe|christmas|rainbow>|chase <brightness>|order test|show", cmd_rgb},
+    {"hall", "hall read|watch [ms] [period_ms]", cmd_hall},
+    {"touch", "touch raw|watch [ms] [period_ms]", cmd_touch},
     {"i2c", "i2c lines|release-debug|scan|read <addr7> <reg>|write <addr7> <reg> <value>", cmd_i2c},
     {"ip5209", "ip5209 status|dump|probe|read <reg>|write <reg> <value>|boost <on|off>|light-load <enable|disable>|ntc <enable|disable>", cmd_ip5209},
 #if APP_SPI0_MOSI_PINMUX_TEST
@@ -180,6 +184,90 @@ static void format_bits8(uint8_t value, char out[10])
         out[i + 1u] = (value & (uint8_t)(0x80u >> i)) ? '1' : '0';
     }
     out[9] = '\0';
+}
+
+static void shell_wait_ms(uint32_t duration_ms)
+{
+    uint32_t started_ms = timebase_ms();
+    while ((uint32_t)(timebase_ms() - started_ms) < duration_ms) {
+    }
+}
+
+static void rgb_shell_fill(rgb_color_t color)
+{
+    for (uint8_t i = 0; i < APP_RGB_LED_COUNT; ++i) {
+        rgb_ws2812_set(i, color);
+    }
+    rgb_ws2812_show();
+}
+
+static uint8_t rgb_shell_scale(uint8_t value, uint8_t percent)
+{
+    return (uint8_t)(((uint16_t)value * (uint16_t)percent) / 100u);
+}
+
+static uint16_t rgb_shell_lfsr_next(uint16_t state)
+{
+    uint16_t lsb = (uint16_t)(state & 1u);
+    state >>= 1;
+    if (lsb) {
+        state ^= 0xB400u;
+    }
+    return state == 0u ? 0xACE1u : state;
+}
+
+static rgb_color_t rgb_shell_wheel(uint8_t pos)
+{
+    rgb_color_t color;
+
+    if (pos < 85u) {
+        color.r = (uint8_t)(255u - (uint16_t)pos * 3u);
+        color.g = (uint8_t)((uint16_t)pos * 3u);
+        color.b = 0u;
+    } else if (pos < 170u) {
+        pos = (uint8_t)(pos - 85u);
+        color.r = 0u;
+        color.g = (uint8_t)(255u - (uint16_t)pos * 3u);
+        color.b = (uint8_t)((uint16_t)pos * 3u);
+    } else {
+        pos = (uint8_t)(pos - 170u);
+        color.r = (uint8_t)((uint16_t)pos * 3u);
+        color.g = 0u;
+        color.b = (uint8_t)(255u - (uint16_t)pos * 3u);
+    }
+    return color;
+}
+
+static int parse_demo_rgb_effect(const char *text, demo_rgb_effect_t *effect)
+{
+    if (text == NULL || effect == NULL) {
+        return -1;
+    }
+    if (strcmp(text, "chase") == 0) {
+        *effect = DEMO_RGB_EFFECT_CHASE;
+        return 0;
+    }
+    if (strcmp(text, "stars") == 0) {
+        *effect = DEMO_RGB_EFFECT_STARS;
+        return 0;
+    }
+    if (strcmp(text, "rainbow") == 0) {
+        *effect = DEMO_RGB_EFFECT_RAINBOW;
+        return 0;
+    }
+    if (strcmp(text, "breathe") == 0) {
+        *effect = DEMO_RGB_EFFECT_BREATHE;
+        return 0;
+    }
+    if (strcmp(text, "strobe") == 0) {
+        *effect = DEMO_RGB_EFFECT_STROBE;
+        return 0;
+    }
+    if (strcmp(text, "christmas") == 0) {
+        *effect = DEMO_RGB_EFFECT_CHRISTMAS;
+        return 0;
+    }
+    return -1;
 }
 
 static void log_ip5209_reg8(const char *name, uint8_t reg, uint8_t value)
@@ -412,7 +500,7 @@ static int cmd_version(int argc, char **argv)
     (void)argv;
     LOG_INFO("version=%s profile=%s board=%s git=%s built=%s\r\n",
              APP_FIRMWARE_VERSION,
-             BUILD_PROFILE_NAME,
+             APP_BUILD_PROFILE_NAME,
              APP_BOARD_REVISION,
              APP_GIT_COMMIT,
              APP_BUILD_DATE);
@@ -1831,7 +1919,7 @@ static void print_motor_wave_status(void)
 
     memset(&status, 0, sizeof(status));
     northpole_motor_wave_status(&status);
-    LOG_INFO("motor wave running=%u targets=%s%s%s sleep=%u direction=%d guard=%s guard_duty=%u carrier_hz=%lu electrical_hz_x1000=%lu amplitude=%u sample_ticks=%lu phase=%u ticks=%lu backend=%u dma=%u dma_supported=%s%s%s dma_error=%u entries=%lu repeat=%lu\r\n",
+    LOG_INFO("motor wave running=%u targets=%s%s%s sleep=%u direction=%d guard=%s guard_duty=%u carrier_hz=%lu update_hz=%lu sine=%u electrical_hz_x1000=%lu actual_hz_x1000=%lu amplitude=%u sample_ticks=%lu phase=%u phase_acc=0x%08lx phase_inc=0x%08lx ticks=%lu missed=%lu backend=%u dma=%u dma_supported=%s%s%s dma_error=%u entries=%lu repeat=%lu\r\n",
              (unsigned)status.running,
              (status.target_flags & 0x01u) ? "A" : "",
              (status.target_flags & 0x02u) ? "B" : "",
@@ -1841,11 +1929,17 @@ static void print_motor_wave_status(void)
              northpole_motor_guard_mode_name(status.guard_mode),
              (unsigned)status.guard_duty_permille,
              (unsigned long)status.carrier_hz,
+             (unsigned long)status.control_update_hz,
+             (unsigned)status.sine_table_size,
              (unsigned long)status.electrical_hz_x1000,
+             (unsigned long)status.actual_electrical_hz_x1000,
              (unsigned)status.amplitude_permille,
              (unsigned long)status.sample_ticks,
              (unsigned)status.phase,
+             (unsigned long)status.phase_acc,
+             (unsigned long)status.phase_inc,
              (unsigned long)status.tick_count,
+             (unsigned long)status.missed_update_count,
              (unsigned)APP_MOTOR_PWM_BACKEND_ENABLE,
              (unsigned)status.dma_mode,
              (status.dma_supported_flags & 0x01u) ? "A" : "",
@@ -1862,19 +1956,32 @@ static void print_motion_status(void)
 
     memset(&status, 0, sizeof(status));
     motion_control_status(&status);
-    LOG_INFO("motion enabled=%u running=%u speed_hz_x1000=%ld step=%ld max=%ld target=%s%s%s sleep=%u amplitude=%u guard=%s guard_duty=%u last_rc=%d\r\n",
+    LOG_INFO("motion enabled=%u running=%u stopping=%u speed_current_hz_x1000=%ld speed_target_hz_x1000=%ld step=%ld max=%ld target=%s%s%s sleep=%u amplitude_current=%u amplitude_target=%u carrier_hz=%lu update_hz=%lu sine=%u phase_acc=0x%08lx phase_inc=0x%08lx guard=%s guard_duty=%u ramp_start=%u ramp_stop=%u ramp_speed=%u ticks=%lu missed=%lu last_rc=%d\r\n",
              (unsigned)status.enabled,
              (unsigned)status.running,
-             (long)status.speed_hz_x1000,
+             (unsigned)status.stopping,
+             (long)status.speed_current_hz_x1000,
+             (long)status.speed_target_hz_x1000,
              (long)status.speed_step_hz_x1000,
              (long)status.max_speed_hz_x1000,
              (status.target_flags & NORTHPOLE_MOTOR_WAVE_TARGET_A) ? "A" : "",
              (status.target_flags & NORTHPOLE_MOTOR_WAVE_TARGET_B) ? "B" : "",
              (status.target_flags & NORTHPOLE_MOTOR_WAVE_TARGET_G) ? "G" : "",
              (unsigned)status.sleep_high,
-             (unsigned)status.amplitude_permille,
+             (unsigned)status.amplitude_current_permille,
+             (unsigned)status.amplitude_target_permille,
+             (unsigned long)status.carrier_hz,
+             (unsigned long)status.control_update_hz,
+             (unsigned)status.sine_table_size,
+             (unsigned long)status.phase_acc,
+             (unsigned long)status.phase_inc,
              northpole_motor_guard_mode_name(status.guard_mode),
              (unsigned)status.guard_duty_permille,
+             (unsigned)status.ramp_start_ms,
+             (unsigned)status.ramp_stop_ms,
+             (unsigned)status.ramp_speed_ms,
+             (unsigned long)status.update_tick_count,
+             (unsigned long)status.missed_update_count,
              status.last_start_rc);
 }
 
@@ -1895,6 +2002,11 @@ static int cmd_motion(int argc, char **argv)
     LOG_WARN("motion commands disabled in this target ladder build\r\n");
     return -1;
 #endif
+    if (strcmp(argv[1], "help") == 0) {
+        LOG_INFO("motion status|start|stop|speed <signed_hz_x1000>|step <signed_delta_hz_x1000>|guard <off|forward|reverse|phase-a|phase-b> [duty]\r\n");
+        LOG_INFO("motion tune status|proven|original-like|carrier <hz>|update <hz>|speed <signed_hz_x1000>|amplitude <permille>|guard <mode> <permille>|ramp <start_ms> <stop_ms> <speed_ms>\r\n");
+        return 0;
+    }
     if (strcmp(argv[1], "start") == 0 || strcmp(argv[1], "run") == 0) {
         rc = motion_control_start();
         print_motion_status();
@@ -1935,7 +2047,229 @@ static int cmd_motion(int argc, char **argv)
         print_motor_wave_status();
         return rc;
     }
+    if (strcmp(argv[1], "tune") == 0) {
+        if (argc < 3 || strcmp(argv[2], "status") == 0) {
+            print_motion_status();
+            print_motor_wave_status();
+            return 0;
+        }
+        if (strcmp(argv[2], "original-like") == 0) {
+            rc = motion_control_tune_original_like();
+            print_motion_status();
+            print_motor_wave_status();
+            return rc;
+        }
+        if (strcmp(argv[2], "proven") == 0) {
+            rc = motion_control_tune_proven();
+            print_motion_status();
+            print_motor_wave_status();
+            return rc;
+        }
+        if (strcmp(argv[2], "carrier") == 0 && argc >= 4) {
+            rc = motion_control_set_carrier_hz((uint32_t)strtoul(argv[3], NULL, 0));
+            print_motion_status();
+            print_motor_wave_status();
+            return rc;
+        }
+        if (strcmp(argv[2], "update") == 0 && argc >= 4) {
+            rc = motion_control_set_update_hz((uint32_t)strtoul(argv[3], NULL, 0));
+            print_motion_status();
+            print_motor_wave_status();
+            return rc;
+        }
+        if (strcmp(argv[2], "speed") == 0 && argc >= 4) {
+            rc = motion_control_set_speed((int32_t)strtol(argv[3], NULL, 0));
+            print_motion_status();
+            print_motor_wave_status();
+            return rc;
+        }
+        if (strcmp(argv[2], "amplitude") == 0 && argc >= 4) {
+            rc = motion_control_set_amplitude((uint16_t)strtoul(argv[3], NULL, 0));
+            print_motion_status();
+            print_motor_wave_status();
+            return rc;
+        }
+        if (strcmp(argv[2], "guard") == 0 && argc >= 5) {
+            uint8_t guard_mode;
+
+            if (parse_motor_guard_mode(argv[3], &guard_mode) < 0) {
+                LOG_WARN("bad motion tune guard mode\r\n");
+                return -1;
+            }
+            rc = motion_control_set_guard(guard_mode, (uint16_t)strtoul(argv[4], NULL, 0));
+            print_motion_status();
+            print_motor_wave_status();
+            return rc;
+        }
+        if (strcmp(argv[2], "ramp") == 0 && argc >= 6) {
+            rc = motion_control_set_ramp((uint16_t)strtoul(argv[3], NULL, 0),
+                                         (uint16_t)strtoul(argv[4], NULL, 0),
+                                         (uint16_t)strtoul(argv[5], NULL, 0));
+            print_motion_status();
+            print_motor_wave_status();
+            return rc;
+        }
+        LOG_WARN("bad motion tune command\r\n");
+        return -1;
+    }
     LOG_WARN("bad motion command\r\n");
+    return -1;
+}
+
+static void print_demo_status(void)
+{
+    demo_scene_status_t status;
+
+    demo_scene_status(&status);
+    LOG_INFO("demo enabled=%u state=%s reason=%s faults=0x%08lx usb_power_only=%u elapsed_ms=%lu remaining_ms=%lu duration_ms=%lu\r\n",
+             (unsigned)status.enabled,
+             demo_scene_state_name(status.state),
+             demo_scene_stop_reason_name(status.stop_reason),
+             (unsigned long)status.fault_mask,
+             (unsigned)status.usb_power_only,
+             (unsigned long)status.elapsed_ms,
+             (unsigned long)status.remaining_ms,
+             (unsigned long)status.duration_ms);
+    LOG_INFO("demo speed_hz_x1000=%ld intensity=%u amplitude=%u guard=%s guard_duty=%u motor_rc=%d\r\n",
+             (long)status.speed_hz_x1000,
+             (unsigned)status.intensity_percent,
+             (unsigned)status.amplitude_permille,
+             northpole_motor_guard_mode_name(status.guard_mode),
+             (unsigned)status.guard_duty_permille,
+             status.last_motor_rc);
+    LOG_INFO("demo audio=%u track=%u volume=%u rgb=%u brightness=%u effect=%s hall=%u h1_edges=%lu h2_edges=%lu\r\n",
+             (unsigned)status.audio_enabled,
+             (unsigned)status.audio_track,
+             (unsigned)status.audio_volume,
+             (unsigned)status.rgb_enabled,
+             (unsigned)status.rgb_brightness,
+             demo_scene_rgb_effect_name(status.rgb_effect),
+             (unsigned)status.hall_enabled,
+             (unsigned long)status.hall_edges[0],
+             (unsigned long)status.hall_edges[1]);
+}
+
+static int cmd_demo(int argc, char **argv)
+{
+    int rc = 0;
+
+    if (argc < 2 || strcmp(argv[1], "status") == 0) {
+        print_demo_status();
+        return 0;
+    }
+#if !APP_DEMO_SCENE_ENABLE
+    LOG_WARN("demo scene disabled in this build\r\n");
+    return -1;
+#endif
+    if (strcmp(argv[1], "help") == 0) {
+        LOG_INFO("demo status|start|stop|clear-faults|emergency-stop|speed <signed_hz_x1000>|duration <ms>|intensity <0-100>\r\n");
+        LOG_INFO("demo audio <on|off|track <id>|volume <0-31>|play|stop|next>\r\n");
+        LOG_INFO("demo rgb <on|off|brightness <0-24>|effect <chase|stars|rainbow|breathe|strobe|christmas>>|hall <on|off|reset|status>\r\n");
+        return 0;
+    }
+    if (strcmp(argv[1], "start") == 0 || strcmp(argv[1], "run") == 0) {
+        rc = demo_scene_start();
+        print_demo_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "stop") == 0 || strcmp(argv[1], "off") == 0) {
+        demo_scene_stop(DEMO_STOP_COMMAND);
+        print_demo_status();
+        return 0;
+    }
+    if (strcmp(argv[1], "emergency-stop") == 0 || strcmp(argv[1], "estop") == 0) {
+        demo_scene_emergency_stop();
+        print_demo_status();
+        return 0;
+    }
+    if (strcmp(argv[1], "clear-faults") == 0 || strcmp(argv[1], "clear") == 0) {
+        demo_scene_clear_faults();
+        print_demo_status();
+        return 0;
+    }
+    if (strcmp(argv[1], "speed") == 0 && argc >= 3) {
+        rc = demo_scene_set_speed((int32_t)strtol(argv[2], NULL, 0));
+        print_demo_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "duration") == 0 && argc >= 3) {
+        rc = demo_scene_set_duration((uint32_t)strtoul(argv[2], NULL, 0));
+        print_demo_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "intensity") == 0 && argc >= 3) {
+        rc = demo_scene_set_intensity((uint8_t)strtoul(argv[2], NULL, 0));
+        print_demo_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "audio") == 0 && argc >= 3) {
+        if (strcmp(argv[2], "on") == 0) {
+            rc = demo_scene_set_audio_enabled(1u);
+        } else if (strcmp(argv[2], "off") == 0) {
+            rc = demo_scene_set_audio_enabled(0u);
+        } else if (strcmp(argv[2], "track") == 0 && argc >= 4) {
+            rc = demo_scene_set_audio_track((uint16_t)strtoul(argv[3], NULL, 0));
+        } else if (strcmp(argv[2], "volume") == 0 && argc >= 4) {
+            rc = demo_scene_set_audio_volume((uint8_t)strtoul(argv[3], NULL, 0));
+        } else if (strcmp(argv[2], "play") == 0) {
+            demo_scene_status_t status;
+            demo_scene_status(&status);
+            rc = (int)audio_wt2003_play(status.audio_track);
+        } else if (strcmp(argv[2], "stop") == 0) {
+            rc = (int)audio_wt2003_stop();
+        } else if (strcmp(argv[2], "next") == 0) {
+            rc = (int)wt2003_next();
+        } else {
+            LOG_WARN("bad demo audio command\r\n");
+            return -1;
+        }
+        print_demo_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "rgb") == 0 && argc >= 3) {
+        if (strcmp(argv[2], "on") == 0) {
+            rc = demo_scene_set_rgb_enabled(1u);
+        } else if (strcmp(argv[2], "off") == 0) {
+            rc = demo_scene_set_rgb_enabled(0u);
+        } else if (strcmp(argv[2], "brightness") == 0 && argc >= 4) {
+            rc = demo_scene_set_rgb_brightness((uint8_t)strtoul(argv[3], NULL, 0));
+        } else if (strcmp(argv[2], "effect") == 0 && argc >= 4) {
+            demo_rgb_effect_t effect;
+            if (parse_demo_rgb_effect(argv[3], &effect) < 0) {
+                LOG_WARN("bad demo rgb effect; use chase|stars|rainbow|breathe|strobe|christmas\r\n");
+                return -1;
+            }
+            rc = demo_scene_set_rgb_effect(effect);
+            LOG_INFO("demo rgb effect=%s expected=effect visible while demo is RUNNING\r\n",
+                     demo_scene_rgb_effect_name(effect));
+        } else {
+            LOG_WARN("bad demo rgb command\r\n");
+            return -1;
+        }
+        print_demo_status();
+        return rc;
+    }
+    if (strcmp(argv[1], "hall") == 0) {
+        if (argc < 3 || strcmp(argv[2], "status") == 0) {
+            print_demo_status();
+            return 0;
+        }
+        if (strcmp(argv[2], "on") == 0) {
+            rc = demo_scene_set_hall_enabled(1u);
+        } else if (strcmp(argv[2], "off") == 0) {
+            rc = demo_scene_set_hall_enabled(0u);
+        } else if (strcmp(argv[2], "reset") == 0) {
+            demo_scene_reset_hall_counters();
+            rc = 0;
+        } else {
+            LOG_WARN("bad demo hall command\r\n");
+            return -1;
+        }
+        print_demo_status();
+        return rc;
+    }
+
+    LOG_WARN("bad demo command\r\n");
     return -1;
 }
 
@@ -1944,8 +2278,10 @@ static int cmd_motor(int argc, char **argv)
     if (argc < 2) {
         LOG_INFO("motor status|arm <seconds>|off|pwm-debug|wave-status|wave-stop\r\n");
         LOG_INFO("motor wave-start <electrical_hz_x1000> <amplitude_permille> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]\r\n");
+        LOG_INFO("motor wave-start-smooth <electrical_hz_x1000> <amplitude_permille> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]\r\n");
         LOG_INFO("motor wave-clkdiv <slot_us> <amplitude_permille> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]\r\n");
         LOG_INFO("motor wave-run <electrical_hz_x1000> <amplitude_permille> <ms> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]\r\n");
+        LOG_INFO("motor wave-run-smooth <electrical_hz_x1000> <amplitude_permille> <ms> [AB|A|B|G|all] [sleep0|sleep1] [fwd|rev] [guard-off|guard-fwd|guard-rev|guard-a|guard-b] [guard-duty <permille>]\r\n");
         LOG_INFO("motor wave-dma-a <slot_us> <amplitude_permille> [sleep0|sleep1]|wave-dma-hybrid <slot_us> <amplitude_permille> [AB|A|all] [sleep0|sleep1]\r\n");
         LOG_INFO("motor pwm <A|B|G> <forward|reverse|coast|brake> <duty_permille> <ms>|sine-* diagnostics|diag-inputs <A|B|G> <forward|reverse|coast|brake> <ms>\r\n");
         return 0;
@@ -1983,7 +2319,7 @@ static int cmd_motor(int argc, char **argv)
         return 0;
     }
     if (strcmp(argv[1], "off") == 0) {
-        motion_control_stop();
+        motion_control_stop_immediate();
         northpole_motor_wave_stop();
         motor_drv8837_off();
         LOG_INFO("motor off sleep=%u\r\n", (unsigned)board_output_last_state(BOARD_OUTPUT_MOTOR_SLEEP));
@@ -1994,7 +2330,8 @@ static int cmd_motor(int argc, char **argv)
         print_motor_wave_status();
         return 0;
     }
-    if (strcmp(argv[1], "wave-start") == 0 && argc >= 4) {
+    if ((strcmp(argv[1], "wave-start") == 0 ||
+         strcmp(argv[1], "wave-start-smooth") == 0) && argc >= 4) {
         uint32_t electrical_hz_x1000 = (uint32_t)strtoul(argv[2], NULL, 0);
         uint16_t amplitude = (uint16_t)strtoul(argv[3], NULL, 0);
         uint8_t target_flags = sine_demo_target_flags(argc >= 5 ? argv[4] : NULL);
@@ -2002,6 +2339,7 @@ static int cmd_motor(int argc, char **argv)
         int8_t direction = 1;
         uint8_t guard_mode = NORTHPOLE_MOTOR_GUARD_OFF;
         uint16_t guard_duty = 0u;
+        uint8_t smooth = strcmp(argv[1], "wave-start-smooth") == 0;
         int rc;
 
         if (target_flags == 0u ||
@@ -2010,14 +2348,25 @@ static int cmd_motor(int argc, char **argv)
             LOG_WARN("bad motor wave-start command\r\n");
             return -1;
         }
-        rc = northpole_motor_wave_start_ex(electrical_hz_x1000,
-                                           amplitude,
-                                           target_flags,
-                                           sleep_high,
-                                           direction,
-                                           guard_mode,
-                                           guard_duty);
-        LOG_INFO("motor wave-start electrical_hz_x1000=%lu amplitude=%u targets=%s%s%s sleep=%u direction=%d guard=%s guard_duty=%u rc=%d\r\n",
+        if (smooth) {
+            rc = northpole_motor_wave_start_smooth_ex(electrical_hz_x1000,
+                                                      amplitude,
+                                                      target_flags,
+                                                      sleep_high,
+                                                      direction,
+                                                      guard_mode,
+                                                      guard_duty);
+        } else {
+            rc = northpole_motor_wave_start_ex(electrical_hz_x1000,
+                                               amplitude,
+                                               target_flags,
+                                               sleep_high,
+                                               direction,
+                                               guard_mode,
+                                               guard_duty);
+        }
+        LOG_INFO("motor %s electrical_hz_x1000=%lu amplitude=%u targets=%s%s%s sleep=%u direction=%d guard=%s guard_duty=%u rc=%d\r\n",
+                 smooth ? "wave-start-smooth" : "wave-start",
                  (unsigned long)electrical_hz_x1000,
                  (unsigned)amplitude,
                  (target_flags & 0x01u) ? "A" : "",
@@ -2114,7 +2463,8 @@ static int cmd_motor(int argc, char **argv)
         print_motor_wave_status();
         return rc;
     }
-    if (strcmp(argv[1], "wave-run") == 0 && argc >= 5) {
+    if ((strcmp(argv[1], "wave-run") == 0 ||
+         strcmp(argv[1], "wave-run-smooth") == 0) && argc >= 5) {
         uint32_t electrical_hz_x1000 = (uint32_t)strtoul(argv[2], NULL, 0);
         uint16_t amplitude = (uint16_t)strtoul(argv[3], NULL, 0);
         uint32_t duration_ms = (uint32_t)strtoul(argv[4], NULL, 0);
@@ -2123,6 +2473,7 @@ static int cmd_motor(int argc, char **argv)
         int8_t direction = 1;
         uint8_t guard_mode = NORTHPOLE_MOTOR_GUARD_OFF;
         uint16_t guard_duty = 0u;
+        uint8_t smooth = strcmp(argv[1], "wave-run-smooth") == 0;
         int rc;
 
         if (duration_ms > 60000UL) {
@@ -2134,14 +2485,25 @@ static int cmd_motor(int argc, char **argv)
             LOG_WARN("bad motor wave-run command\r\n");
             return -1;
         }
-        rc = northpole_motor_wave_start_ex(electrical_hz_x1000,
-                                           amplitude,
-                                           target_flags,
-                                           sleep_high,
-                                           direction,
-                                           guard_mode,
-                                           guard_duty);
-        LOG_INFO("motor wave-run electrical_hz_x1000=%lu amplitude=%u duration_ms=%lu targets=%s%s%s sleep=%u direction=%d guard=%s guard_duty=%u rc=%d\r\n",
+        if (smooth) {
+            rc = northpole_motor_wave_start_smooth_ex(electrical_hz_x1000,
+                                                      amplitude,
+                                                      target_flags,
+                                                      sleep_high,
+                                                      direction,
+                                                      guard_mode,
+                                                      guard_duty);
+        } else {
+            rc = northpole_motor_wave_start_ex(electrical_hz_x1000,
+                                               amplitude,
+                                               target_flags,
+                                               sleep_high,
+                                               direction,
+                                               guard_mode,
+                                               guard_duty);
+        }
+        LOG_INFO("motor %s electrical_hz_x1000=%lu amplitude=%u duration_ms=%lu targets=%s%s%s sleep=%u direction=%d guard=%s guard_duty=%u rc=%d\r\n",
+                 smooth ? "wave-run-smooth" : "wave-run",
                  (unsigned long)electrical_hz_x1000,
                  (unsigned)amplitude,
                  (unsigned long)duration_ms,
@@ -2340,7 +2702,7 @@ static int cmd_rgb(int argc, char **argv)
     static uint8_t chase_index;
 
     if (argc < 2) {
-        LOG_INFO("rgb backend|brightness <0-255>|diag-pa14 <high [ms]|low [ms]|square <hz> <ms>>|off|idle-low|one <idx> <r> <g> <b>|all <r> <g> <b>|chase <brightness>|order test|show\r\n");
+        LOG_INFO("rgb backend|brightness <0-255>|diag-pa14 <high [ms]|low [ms]|square <hz> <ms>>|off|idle-low|one <idx> <r> <g> <b>|all <r> <g> <b>|walk <r> <g> <b> [ms]|scene <stars|breathe|strobe|christmas|rainbow>|chase <brightness>|order test|show\r\n");
         return 0;
     }
 #if APP_DEV_BOARD_BRINGUP_APP_SMOKE
@@ -2449,6 +2811,228 @@ static int cmd_rgb(int argc, char **argv)
         LOG_INFO("rgb all sent\r\n");
         return 0;
     }
+    if (strcmp(argv[1], "walk") == 0 && argc >= 5) {
+        rgb_color_t off = {0, 0, 0};
+        rgb_color_t color;
+        uint32_t dwell_ms = argc >= 6 ? (uint32_t)strtoul(argv[5], NULL, 0) : 250u;
+
+        if (dwell_ms > 5000u) {
+            dwell_ms = 5000u;
+        }
+        color.r = (uint8_t)strtoul(argv[2], NULL, 0);
+        color.g = (uint8_t)strtoul(argv[3], NULL, 0);
+        color.b = (uint8_t)strtoul(argv[4], NULL, 0);
+
+        LOG_INFO("rgb walk start color=%u,%u,%u dwell_ms=%lu leds=%u\r\n",
+                 (unsigned)color.r,
+                 (unsigned)color.g,
+                 (unsigned)color.b,
+                 (unsigned long)dwell_ms,
+                 (unsigned)APP_RGB_LED_COUNT);
+        for (uint8_t active = 0; active < APP_RGB_LED_COUNT; ++active) {
+            for (uint8_t i = 0; i < APP_RGB_LED_COUNT; ++i) {
+                rgb_ws2812_set(i, off);
+            }
+            rgb_ws2812_set(active, color);
+            rgb_ws2812_show();
+            LOG_INFO("rgb walk led=%u\r\n", (unsigned)active);
+            shell_wait_ms(dwell_ms);
+        }
+        rgb_ws2812_clear();
+        LOG_INFO("rgb walk done\r\n");
+        return 0;
+    }
+    if (strcmp(argv[1], "scene") == 0 && argc >= 3) {
+        if (strcmp(argv[2], "strobe") == 0) {
+            uint8_t count = argc >= 4 ? (uint8_t)strtoul(argv[3], NULL, 0) : 8u;
+            uint8_t brightness = argc >= 5 ? (uint8_t)strtoul(argv[4], NULL, 0) : 24u;
+            rgb_color_t white = {255u, 255u, 255u};
+            rgb_color_t off = {0u, 0u, 0u};
+
+            if (count == 0u || count > 40u) {
+                count = 8u;
+            }
+            rgb_ws2812_set_brightness(brightness);
+            LOG_INFO("rgb scene strobe count=%u brightness=%u expect all LEDs flash white together\r\n",
+                     (unsigned)count,
+                     (unsigned)rgb_ws2812_get_brightness());
+            for (uint8_t i = 0; i < count; ++i) {
+                rgb_shell_fill(white);
+                shell_wait_ms(90u);
+                rgb_shell_fill(off);
+                shell_wait_ms(120u);
+            }
+            LOG_INFO("rgb scene strobe done\r\n");
+            return 0;
+        }
+        if (strcmp(argv[2], "breathe") == 0 && argc >= 6) {
+            rgb_color_t base;
+            uint8_t cycles = argc >= 7 ? (uint8_t)strtoul(argv[6], NULL, 0) : 3u;
+            uint16_t step_ms = argc >= 8 ? (uint16_t)strtoul(argv[7], NULL, 0) : 35u;
+
+            base.r = (uint8_t)strtoul(argv[3], NULL, 0);
+            base.g = (uint8_t)strtoul(argv[4], NULL, 0);
+            base.b = (uint8_t)strtoul(argv[5], NULL, 0);
+            if (cycles == 0u || cycles > 20u) {
+                cycles = 3u;
+            }
+            if (step_ms < 10u) {
+                step_ms = 10u;
+            }
+            if (step_ms > 250u) {
+                step_ms = 250u;
+            }
+            LOG_INFO("rgb scene breathe color=%u,%u,%u cycles=%u step_ms=%u expect all LEDs fade in/out together\r\n",
+                     (unsigned)base.r,
+                     (unsigned)base.g,
+                     (unsigned)base.b,
+                     (unsigned)cycles,
+                     (unsigned)step_ms);
+            for (uint8_t cycle = 0; cycle < cycles; ++cycle) {
+                for (uint8_t level = 0u; level <= 100u; level += 5u) {
+                    rgb_color_t color = {
+                        rgb_shell_scale(base.r, level),
+                        rgb_shell_scale(base.g, level),
+                        rgb_shell_scale(base.b, level),
+                    };
+                    rgb_shell_fill(color);
+                    shell_wait_ms(step_ms);
+                }
+                for (int level = 100; level >= 0; level -= 5) {
+                    rgb_color_t color = {
+                        rgb_shell_scale(base.r, (uint8_t)level),
+                        rgb_shell_scale(base.g, (uint8_t)level),
+                        rgb_shell_scale(base.b, (uint8_t)level),
+                    };
+                    rgb_shell_fill(color);
+                    shell_wait_ms(step_ms);
+                }
+            }
+            rgb_ws2812_clear();
+            LOG_INFO("rgb scene breathe done\r\n");
+            return 0;
+        }
+        if (strcmp(argv[2], "stars") == 0) {
+            uint32_t duration_ms = argc >= 4 ? (uint32_t)strtoul(argv[3], NULL, 0) * 1000u : 8000u;
+            uint8_t brightness = argc >= 5 ? (uint8_t)strtoul(argv[4], NULL, 0) : 24u;
+            uint32_t started_ms;
+            uint16_t lfsr = 0xACE1u;
+            rgb_color_t off = {0u, 0u, 0u};
+
+            if (duration_ms > 60000u) {
+                duration_ms = 60000u;
+            }
+            rgb_ws2812_set_brightness(brightness);
+            LOG_INFO("rgb scene stars seconds=%lu brightness=%u expect random white/blue twinkles\r\n",
+                     (unsigned long)(duration_ms / 1000u),
+                     (unsigned)rgb_ws2812_get_brightness());
+            started_ms = timebase_ms();
+            while ((uint32_t)(timebase_ms() - started_ms) < duration_ms) {
+                lfsr = rgb_shell_lfsr_next(lfsr);
+                for (uint8_t i = 0; i < APP_RGB_LED_COUNT; ++i) {
+                    rgb_ws2812_set(i, off);
+                }
+                for (uint8_t spark = 0; spark < 2u; ++spark) {
+                    rgb_color_t color;
+                    uint8_t index;
+
+                    lfsr = rgb_shell_lfsr_next(lfsr);
+                    index = (uint8_t)(lfsr % APP_RGB_LED_COUNT);
+                    color.r = (lfsr & 0x0008u) ? 255u : 80u;
+                    color.g = (lfsr & 0x0010u) ? 255u : 120u;
+                    color.b = 255u;
+                    rgb_ws2812_set(index, color);
+                }
+                rgb_ws2812_show();
+                shell_wait_ms(140u);
+            }
+            rgb_ws2812_clear();
+            LOG_INFO("rgb scene stars done\r\n");
+            return 0;
+        }
+        if (strcmp(argv[2], "christmas") == 0) {
+            uint32_t duration_ms = argc >= 4 ? (uint32_t)strtoul(argv[3], NULL, 0) * 1000u : 10000u;
+            uint16_t step_ms = argc >= 5 ? (uint16_t)strtoul(argv[4], NULL, 0) : 180u;
+            uint32_t started_ms;
+            uint8_t phase = 0u;
+
+            if (duration_ms > 60000u) {
+                duration_ms = 60000u;
+            }
+            if (step_ms < 50u) {
+                step_ms = 50u;
+            }
+            if (step_ms > 1000u) {
+                step_ms = 1000u;
+            }
+            LOG_INFO("rgb scene christmas seconds=%lu step_ms=%u expect red/green pattern rotating around strip\r\n",
+                     (unsigned long)(duration_ms / 1000u),
+                     (unsigned)step_ms);
+            started_ms = timebase_ms();
+            while ((uint32_t)(timebase_ms() - started_ms) < duration_ms) {
+                for (uint8_t i = 0; i < APP_RGB_LED_COUNT; ++i) {
+                    rgb_color_t color;
+                    if (((uint8_t)(i + phase) & 1u) == 0u) {
+                        color.r = 255u;
+                        color.g = 0u;
+                        color.b = 0u;
+                    } else {
+                        color.r = 0u;
+                        color.g = 255u;
+                        color.b = 0u;
+                    }
+                    rgb_ws2812_set(i, color);
+                }
+                rgb_ws2812_show();
+                phase++;
+                shell_wait_ms(step_ms);
+            }
+            rgb_ws2812_clear();
+            LOG_INFO("rgb scene christmas done\r\n");
+            return 0;
+        }
+        if (strcmp(argv[2], "rainbow") == 0) {
+            uint32_t duration_ms = argc >= 4 ? (uint32_t)strtoul(argv[3], NULL, 0) * 1000u : 10000u;
+            uint8_t brightness = argc >= 5 ? (uint8_t)strtoul(argv[4], NULL, 0) : 24u;
+            uint16_t step_ms = argc >= 6 ? (uint16_t)strtoul(argv[5], NULL, 0) : 120u;
+            uint32_t started_ms;
+            uint8_t phase = 0u;
+
+            if (duration_ms > 60000u) {
+                duration_ms = 60000u;
+            }
+            if (step_ms < 40u) {
+                step_ms = 40u;
+            }
+            if (step_ms > 1000u) {
+                step_ms = 1000u;
+            }
+            rgb_ws2812_set_brightness(brightness);
+            LOG_INFO("rgb scene rainbow seconds=%lu brightness=%u step_ms=%u expect dim blended rainbow moving across strip\r\n",
+                     (unsigned long)(duration_ms / 1000u),
+                     (unsigned)rgb_ws2812_get_brightness(),
+                     (unsigned)step_ms);
+            started_ms = timebase_ms();
+            while ((uint32_t)(timebase_ms() - started_ms) < duration_ms) {
+                for (uint8_t i = 0; i < APP_RGB_LED_COUNT; ++i) {
+                    rgb_color_t color = rgb_shell_wheel((uint8_t)(phase + (uint8_t)(i * 42u)));
+                    rgb_ws2812_set(i, color);
+                }
+                rgb_ws2812_show();
+                phase = (uint8_t)(phase + 5u);
+                shell_wait_ms(step_ms);
+            }
+            rgb_ws2812_clear();
+            LOG_INFO("rgb scene rainbow done\r\n");
+            return 0;
+        }
+        LOG_INFO("rgb scene strobe [count] [brightness]\r\n");
+        LOG_INFO("rgb scene breathe <r> <g> <b> [cycles] [step_ms]\r\n");
+        LOG_INFO("rgb scene stars [seconds] [brightness]\r\n");
+        LOG_INFO("rgb scene christmas [seconds] [step_ms]\r\n");
+        LOG_INFO("rgb scene rainbow [seconds] [brightness] [step_ms]\r\n");
+        return -1;
+    }
     if (strcmp(argv[1], "chase") == 0 && argc >= 3) {
         rgb_color_t off = {0, 0, 0};
         rgb_color_t on = {0, 255, 80};
@@ -2487,16 +3071,86 @@ static int cmd_rgb(int argc, char **argv)
 
 static int cmd_hall(int argc, char **argv)
 {
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
     (void)argc;
     (void)argv;
-#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
     LOG_WARN("hall input reads disabled in dev-board smoke build\r\n");
     return -1;
 #endif
 #if !APP_TARGET_ENABLE_HALL
+    (void)argc;
+    (void)argv;
     LOG_WARN("hall input reads disabled in this target ladder build\r\n");
     return -1;
 #endif
+    if (argc >= 2 && strcmp(argv[1], "watch") == 0) {
+        uint32_t duration_ms = argc >= 3 ? (uint32_t)strtoul(argv[2], NULL, 0) : 15000u;
+        uint32_t period_ms = argc >= 4 ? (uint32_t)strtoul(argv[3], NULL, 0) : 20u;
+        uint32_t started_ms;
+        uint32_t next_heartbeat_ms;
+        hall_state_t last[HALL_SENSOR_COUNT];
+
+        if (duration_ms > 60000u) {
+            duration_ms = 60000u;
+        }
+        if (period_ms < 5u) {
+            period_ms = 5u;
+        }
+        if (period_ms > 1000u) {
+            period_ms = 1000u;
+        }
+
+        hall_poll();
+        for (uint8_t i = 0; i < HALL_SENSOR_COUNT; ++i) {
+            last[i] = hall_get_state((hall_sensor_id_t)i);
+        }
+        started_ms = timebase_ms();
+        next_heartbeat_ms = started_ms;
+        LOG_INFO("hall watch start duration_ms=%lu period_ms=%lu; move magnet now\r\n",
+                 (unsigned long)duration_ms,
+                 (unsigned long)period_ms);
+        LOG_INFO("hall initial h1=%u/%lu h2=%u/%lu\r\n",
+                 (unsigned)last[0].level,
+                 (unsigned long)last[0].edge_count,
+                 (unsigned)last[1].level,
+                 (unsigned long)last[1].edge_count);
+
+        while ((uint32_t)(timebase_ms() - started_ms) < duration_ms) {
+            uint32_t now_ms = timebase_ms();
+            uint8_t changed = 0u;
+            hall_poll();
+            for (uint8_t i = 0; i < HALL_SENSOR_COUNT; ++i) {
+                hall_state_t state = hall_get_state((hall_sensor_id_t)i);
+                if (state.level != last[i].level || state.edge_count != last[i].edge_count) {
+                    LOG_INFO("hall%u change t=%lu level=%u edges=%lu last_ms=%lu\r\n",
+                             (unsigned)(i + 1u),
+                             (unsigned long)(now_ms - started_ms),
+                             (unsigned)state.level,
+                             (unsigned long)state.edge_count,
+                             (unsigned long)state.last_edge_ms);
+                    last[i] = state;
+                    changed = 1u;
+                }
+            }
+            if (!changed && (int32_t)(now_ms - next_heartbeat_ms) >= 0) {
+                LOG_INFO("hall watch t=%lu h1=%u/%lu h2=%u/%lu\r\n",
+                         (unsigned long)(now_ms - started_ms),
+                         (unsigned)last[0].level,
+                         (unsigned long)last[0].edge_count,
+                         (unsigned)last[1].level,
+                         (unsigned long)last[1].edge_count);
+                next_heartbeat_ms = now_ms + 1000u;
+            }
+            shell_wait_ms(period_ms);
+        }
+        LOG_INFO("hall watch done h1=%u/%lu h2=%u/%lu\r\n",
+                 (unsigned)last[0].level,
+                 (unsigned long)last[0].edge_count,
+                 (unsigned)last[1].level,
+                 (unsigned long)last[1].edge_count);
+        return 0;
+    }
+
     hall_poll();
     for (uint8_t i = 0; i < HALL_SENSOR_COUNT; ++i) {
         hall_state_t state = hall_get_state((hall_sensor_id_t)i);
@@ -2511,16 +3165,90 @@ static int cmd_hall(int argc, char **argv)
 
 static int cmd_touch(int argc, char **argv)
 {
+#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
     (void)argc;
     (void)argv;
-#if APP_DEV_BOARD_BRINGUP_APP_SMOKE
     LOG_WARN("touch reads disabled in dev-board smoke build\r\n");
     return -1;
 #endif
 #if !APP_TARGET_ENABLE_TOUCH
+    (void)argc;
+    (void)argv;
     LOG_WARN("touch reads disabled in this target ladder build\r\n");
     return -1;
 #endif
+    if (argc >= 2 && strcmp(argv[1], "watch") == 0) {
+        uint32_t duration_ms = argc >= 3 ? (uint32_t)strtoul(argv[2], NULL, 0) : 15000u;
+        uint32_t period_ms = argc >= 4 ? (uint32_t)strtoul(argv[3], NULL, 0) : 20u;
+        uint32_t started_ms;
+        uint32_t next_heartbeat_ms;
+        touch_state_t last[TOUCH_COUNT];
+
+        if (duration_ms > 60000u) {
+            duration_ms = 60000u;
+        }
+        if (period_ms < 5u) {
+            period_ms = 5u;
+        }
+        if (period_ms > 1000u) {
+            period_ms = 1000u;
+        }
+
+        touch_poll();
+        for (uint8_t i = 0; i < TOUCH_COUNT; ++i) {
+            last[i] = touch_get_state((touch_pad_id_t)i);
+        }
+        started_ms = timebase_ms();
+        next_heartbeat_ms = started_ms;
+        LOG_INFO("touch watch start duration_ms=%lu period_ms=%lu; touch pads now\r\n",
+                 (unsigned long)duration_ms,
+                 (unsigned long)period_ms);
+        LOG_INFO("touch initial spd-=%u run=%u spd+=%u music=%u\r\n",
+                 (unsigned)last[TOUCH_SPD_MINUS].raw,
+                 (unsigned)last[TOUCH_RUN].raw,
+                 (unsigned)last[TOUCH_SPD_PLUS].raw,
+                 (unsigned)last[TOUCH_MUSIC].raw);
+
+        while ((uint32_t)(timebase_ms() - started_ms) < duration_ms) {
+            uint32_t now_ms = timebase_ms();
+            uint8_t changed = 0u;
+            touch_poll();
+            for (uint8_t i = 0; i < TOUCH_COUNT; ++i) {
+                touch_state_t state = touch_get_state((touch_pad_id_t)i);
+                if (state.raw != last[i].raw ||
+                    state.baseline != last[i].baseline ||
+                    state.threshold != last[i].threshold ||
+                    state.pressed != last[i].pressed) {
+                    LOG_INFO("touch %-6s change t=%lu raw=%u baseline=%u threshold=%u pressed=%u\r\n",
+                             touch_name((touch_pad_id_t)i),
+                             (unsigned long)(now_ms - started_ms),
+                             (unsigned)state.raw,
+                             (unsigned)state.baseline,
+                             (unsigned)state.threshold,
+                             (unsigned)state.pressed);
+                    last[i] = state;
+                    changed = 1u;
+                }
+            }
+            if (!changed && (int32_t)(now_ms - next_heartbeat_ms) >= 0) {
+                LOG_INFO("touch watch t=%lu spd-=%u run=%u spd+=%u music=%u\r\n",
+                         (unsigned long)(now_ms - started_ms),
+                         (unsigned)last[TOUCH_SPD_MINUS].raw,
+                         (unsigned)last[TOUCH_RUN].raw,
+                         (unsigned)last[TOUCH_SPD_PLUS].raw,
+                         (unsigned)last[TOUCH_MUSIC].raw);
+                next_heartbeat_ms = now_ms + 1000u;
+            }
+            shell_wait_ms(period_ms);
+        }
+        LOG_INFO("touch watch done spd-=%u run=%u spd+=%u music=%u\r\n",
+                 (unsigned)last[TOUCH_SPD_MINUS].raw,
+                 (unsigned)last[TOUCH_RUN].raw,
+                 (unsigned)last[TOUCH_SPD_PLUS].raw,
+                 (unsigned)last[TOUCH_MUSIC].raw);
+        return 0;
+    }
+
     touch_poll();
     for (uint8_t i = 0; i < TOUCH_COUNT; ++i) {
         touch_state_t state = touch_get_state((touch_pad_id_t)i);
